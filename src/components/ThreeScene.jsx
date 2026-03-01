@@ -3,7 +3,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 function ThreeScene({ type }) {
-
+  const totalPointsRef = useRef(0);
+  const visiblePointsRef = useRef(0);
+  const buildingRef = useRef(false);
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
@@ -45,9 +47,26 @@ function ThreeScene({ type }) {
 
     function animate() {
       animationId = requestAnimationFrame(animate);
+
       controls.update();
-      renderer.render(scene, camera);
-    }
+
+      // 🔹 Build fractal gradually
+      if (buildingRef.current && pointsRef.current) {
+        visiblePointsRef.current += 250;
+
+      if (visiblePointsRef.current >= totalPointsRef.current) {
+        visiblePointsRef.current = totalPointsRef.current;
+        buildingRef.current = false;
+      }
+
+        pointsRef.current.geometry.setDrawRange(
+          0,
+          visiblePointsRef.current
+        );
+      }
+
+  renderer.render(scene, camera);
+}
 
     animate();
 
@@ -61,57 +80,64 @@ function ThreeScene({ type }) {
 
   // 🔹 2. Update Geometry When Type Changes
   useEffect(() => {
-    if (!sceneRef.current) return;
+    if (sceneRef.current && type) {
     updateGeometry(type);
+    }
   }, [type]);
 
   // 🔹 3. Geometry Update Function
   function updateGeometry(type) {
 
-    // Remove old fractal
-    if (pointsRef.current) {
-      sceneRef.current.remove(pointsRef.current);
-      pointsRef.current.geometry.dispose();
-      pointsRef.current.material.dispose();
-      pointsRef.current = null;
-    }
+  if (!sceneRef.current) return;
 
-    const fractalFiles = {
-      Octahedron: "/data/octahedron.bin",
-      Dodecahedron: "/data/dodecahedron.bin",
-      Tetrahedron: "/data/tetrahedron.bin"
-    };
-
-    const filePath = fractalFiles[type];
-    if (!filePath) return;
-
-    fetch(filePath)
-      .then(res => res.arrayBuffer())
-      .then(buffer => {
-
-        const positions = new Float32Array(buffer);
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute(
-          "position",
-          new THREE.BufferAttribute(positions, 3)
-        );
-
-        const material = new THREE.PointsMaterial({
-          size: 0.005,
-          color: 0x66ccff,
-          transparent: true,
-          opacity: 0.05,
-          depthWrite: false
-        });
-
-        const points = new THREE.Points(geometry, material);
-
-        sceneRef.current.add(points);
-        pointsRef.current = points;
-
-      });
+  // Remove old fractal
+  if (pointsRef.current) {
+    sceneRef.current.remove(pointsRef.current);
+    pointsRef.current.geometry.dispose();
+    pointsRef.current.material.dispose();
+    pointsRef.current = null;
   }
+
+  const fractalFiles = {
+    Octahedron: "/data/octahedron.bin",
+    Dodecahedron: "/data/dodecahedron.bin",
+    Tetrahedron: "/data/tetrahedron.bin"
+  };
+
+  const filePath = fractalFiles[type];
+  if (!filePath) return;
+
+  fetch(filePath)
+    .then(res => res.arrayBuffer())
+    .then(buffer => {
+
+      const positions = new Float32Array(buffer);
+      const totalPoints = positions.length / 3;
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(positions, 3)
+      );
+
+      geometry.setDrawRange(0, 0);
+
+      const material = new THREE.PointsMaterial({
+        size: 0.01,
+        color: 0xffffff
+      });
+
+      const points = new THREE.Points(geometry, material);
+
+      sceneRef.current.add(points);
+      pointsRef.current = points;
+
+      // 🔹 Reset build state
+      totalPointsRef.current = totalPoints;
+      visiblePointsRef.current = 0;
+      buildingRef.current = true;
+    });
+}
 
   return (
     <div
