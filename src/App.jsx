@@ -1,4 +1,3 @@
-import ThreeScene from "./components/ThreeScene";
 import Controls from "./components/Controls";
 import React, { useState } from "react";
 import FractalCanvas from "./components/FractalCanvas";
@@ -9,7 +8,6 @@ function App() {
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       <FractalCanvas type={fractalType} />
-      <ThreeScene type={fractalType} />
       <Controls setFractalType={setFractalType} />
     </div>
   );

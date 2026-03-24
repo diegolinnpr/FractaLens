@@ -16,6 +16,13 @@ function Controls({ setFractalType }) {
       <button onClick={() => setFractalType("Tetrahedron")}>
         Tetrahedron
       </button>
+
+      <br /><br />
+
+      <button onClick={() => setFractalType("Mandelbulb")}>
+        Mandelbulb
+      </button>
+      
     </div>
   );
 }
