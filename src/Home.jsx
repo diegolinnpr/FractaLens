@@ -6,7 +6,7 @@ function Home() {
   const [fractalType, setFractalType] = useState("Octahedron");
 
   return (
-    <div style={{ display: "flex", height: "10vh" }}>
+    <div style={{ display: "flex", height: "100vh" }}>
       <FractalCanvas type={fractalType} />
       <Controls setFractalType={setFractalType} />
     </div>
