@@ -4,6 +4,13 @@ import FractalCanvas from "./components/FractalCanvas";
 
 function Article() {
   return (
+    <div style={{ 
+      backgroundColor: "#1c1c1c",
+      minHeight: "100vh",
+      padding: "20px",
+      fontFamily: "Arial, sans-serif",
+      color: "#ffffff"
+      }}>
     <div>
       <h1>About Fractals</h1>
       <h2>Fractals</h2>
@@ -30,6 +37,7 @@ function Article() {
         A specific fractal modeled on this website, the mandelbulb, has specifically had many artistic applications. In the movie Big Hero 6, the inside of the wormhole is depicted as part of a mandelbulb’s interior. In the movie Annihilation, a mandelbulb represents one of the aliens. Marvel has also used the mandelbulb multiple times, such as in Agents of S.H.I.E.L.D and Doctor Strange where alternate dimensions are depicted using mandelbulbs.
       </p>
     </div>
+  </div>
   );
 }
 
