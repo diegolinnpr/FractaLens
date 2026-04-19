@@ -1,6 +1,6 @@
 function Controls({ setFractalType }) {
   return (
-    <div style={{ width: "300px", padding: "20px", backgroundColor: "#000000" }}>
+    <div style={{ width: "300px", padding: "20px", backgroundColor: "#1c1c1c" }}>
       <button onClick={() => setFractalType("Octahedron")}>
         Octahedron
       </button>
@@ -26,4 +26,5 @@ function Controls({ setFractalType }) {
     </div>
   );
 }
+
 export default Controls;

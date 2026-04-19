@@ -1,4 +1,4 @@
 node_modules
 public/data/octahedron.bin
 public/data/dodecahedron.bin
-public/data/tetrahedron.bin
+public/data/tetrahedron.bin.DS_Store
