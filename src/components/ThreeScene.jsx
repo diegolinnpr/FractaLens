@@ -74,6 +74,9 @@ function ThreeScene({ type }) {
           0,
           visiblePointsRef.current
         );
+
+        const progress = visiblePointsRef.current / totalPointsRef.current;
+        pointsRef.current.material.opacity = 1.0 - progress * 0.7;
       }
 
   renderer.render(scene, camera);
@@ -120,7 +123,7 @@ function ThreeScene({ type }) {
         const geometry   = new THREE.BufferGeometry();
         geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
         geometry.setDrawRange(0, 0);
-        const material   = new THREE.PointsMaterial({ size: 0.01, color: 0xffffff });
+        const material   = new THREE.PointsMaterial({ size: 0.01, color: 0xffffff, transparent: true, opacity: 1.0 });
         const points     = new THREE.Points(geometry, material);
         sceneRef.current.add(points);
         pointsRef.current     = points;

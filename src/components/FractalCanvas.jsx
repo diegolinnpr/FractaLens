@@ -16,7 +16,17 @@ function FractalCanvas({ type }) {
         <Mandelbulb />
       ) : (
         <>
-          <h2 style={{ margin: "10px" }}>{type} Fractal Here</h2>
+          <div style={{
+            padding: "6px 14px",
+            borderBottom: "1px solid var(--border)",
+            backgroundColor: "var(--panel)",
+            color: "var(--text)",
+            fontSize: "13px",
+            letterSpacing: "1px",
+            flexShrink: 0,
+          }}>
+            &gt; {type} Fractal Here
+          </div>
           <div style={{ flex: 1 }}>
             <ThreeScene type={type} />
           </div>

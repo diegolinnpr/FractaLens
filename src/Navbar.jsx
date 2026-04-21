@@ -2,16 +2,21 @@ import { Link } from "react-router-dom";
 
 function Navbar() {
   return (
-    <div style={{ 
-      backgroundColor: "#1c1c1c",
-      minHeight: "1vh",
-      padding: "20px",
-      fontFamily: "Arial, sans-serif",
-      color: "#ffffff"
-      }}>
-      <nav style={{ marginBottom: "20px" }}>
-        <Link to="/" style={{ color: "#ffffff", textDecoration: "none" }}>Home</Link> |{" "}
-        <Link to="/article" style={{ color: "#ffffff", textDecoration: "none" }}>Article</Link>
+    <div style={{
+      backgroundColor: "var(--panel)",
+      borderBottom: "1px solid var(--border)",
+      padding: "10px 20px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+    }}>
+      <span style={{ color: "var(--amber)", letterSpacing: "3px", fontWeight: "bold" }}>
+        [FrantaLens]
+      </span>
+      <nav style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <Link to="/">Home</Link>
+        <span style={{ color: "var(--text-dim)" }}>|</span>
+        <Link to="/article">Article</Link>
       </nav>
     </div>
   );
