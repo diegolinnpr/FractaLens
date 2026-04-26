@@ -11,7 +11,7 @@ function Navbar() {
       justifyContent: "space-between",
     }}>
       <span style={{ color: "var(--amber)", letterSpacing: "3px", fontWeight: "bold" }}>
-        [FrantaLens]
+        [FractaLens]
       </span>
       <nav style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         <Link to="/">Home</Link>
