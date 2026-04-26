@@ -76,7 +76,6 @@ void main() {
     vec3 normal  = getNormal(p, t);
     vec3 viewDir = normalize(ro - p);
 
-    // ── Shared lighting geometry ──────────────────────────────────────────
     vec3  keyDir  = normalize(vec3( 1.0,  1.2,  0.8));
     vec3  fillDir = normalize(vec3(-1.2,  0.4,  0.3));
     vec3  rimDir  = normalize(vec3( 0.1, -1.0, -0.8));
@@ -85,32 +84,23 @@ void main() {
     float fillDiff = max(dot(normal, fillDir), 0.0) * 0.45;
     float rimDiff  = max(dot(normal, rimDir),  0.0) * 0.25;
 
-    // Specular (power varies per scheme)
     float keySpec48 = pow(max(dot(viewDir, reflect(-keyDir, normal)), 0.0), 48.0);
     float keySpec24 = pow(max(dot(viewDir, reflect(-keyDir, normal)), 0.0), 24.0);
     float keySpec96 = pow(max(dot(viewDir, reflect(-keyDir, normal)), 0.0), 96.0);
     float keySpec32 = pow(max(dot(viewDir, reflect(-keyDir, normal)), 0.0), 32.0);
 
-    // Fresnel edge glow
     float fresnel = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
-
-    // Normal-based vertical gradient (0 = bottom, 1 = top)
     float normalY = normal.y * 0.5 + 0.5;
-
-    // Depth factor (0 = close, 1 = far)
     float depth01 = clamp(t / 12.0, 0.0, 1.0);
 
     vec3 color;
 
-    // ── 0  COSMIC BLUE (default) ──────────────────────────────────────────
     if (iColorScheme == 0) {
       vec3 base = mix(vec3(0.1, 0.38, 0.88), vec3(0.45, 0.75, 1.0), normalY);
       color = base      * (keyDiff + 0.12)
             + vec3(0.28, 0.50, 0.80) * fillDiff
             + vec3(0.95, 0.40, 0.15) * rimDiff
             + vec3(1.0)              * 0.40 * keySpec48;
-
-    // ── 1  MOLTEN CORE ───────────────────────────────────────────────────
     } else if (iColorScheme == 1) {
       vec3 base = mix(vec3(0.80, 0.06, 0.0), vec3(1.0, 0.56, 0.0), normalY);
       color = base               * (keyDiff + 0.05)
@@ -118,10 +108,7 @@ void main() {
             + vec3(1.0,  0.90, 0.3) * rimDiff
             + vec3(1.0,  0.55, 0.0) * fresnel * 0.75
             + vec3(1.0,  0.88, 0.6) * 0.55 * keySpec24;
-
-    // ── 2  NEON VOID ─────────────────────────────────────────────────────
     } else if (iColorScheme == 2) {
-      // Normal direction painted as RGB for a rainbow interior
       vec3 normRGB = abs(normal);
       vec3 base    = mix(vec3(0.0, 0.80, 1.0), normRGB, 0.55);
       color = base                * (keyDiff + 0.08)
@@ -129,8 +116,6 @@ void main() {
             + vec3(0.50, 0.0, 1.0)  * rimDiff
             + vec3(0.0,  1.0, 0.88) * fresnel * 0.65
             + vec3(1.0,  0.4, 1.0)  * 0.50 * keySpec48;
-
-    // ── 3  AURORA BOREALIS ───────────────────────────────────────────────
     } else if (iColorScheme == 3) {
       vec3 base = mix(vec3(0.0, 0.58, 0.50), vec3(0.18, 0.98, 0.62), normalY);
       vec3 fill = mix(vec3(0.20, 0.40, 0.80), vec3(0.48, 0.0, 0.60), normalY);
@@ -139,8 +124,6 @@ void main() {
             + vec3(0.0, 0.50, 1.0)  * rimDiff
             + vec3(0.15, 1.0, 0.50) * fresnel * 0.40
             + vec3(0.80, 1.0, 1.0)  * 0.28 * keySpec48;
-
-    // ── 4  EMBER GLOW ────────────────────────────────────────────────────
     } else if (iColorScheme == 4) {
       vec3 base = mix(vec3(1.0, 0.28, 0.0), vec3(1.0, 0.72, 0.10), normalY);
       color = base                * (keyDiff + 0.06)
@@ -148,8 +131,6 @@ void main() {
             + vec3(1.0,  1.0,  0.80) * rimDiff
             + vec3(1.0,  0.78, 0.38) * fresnel * 1.0
             + vec3(1.0,  1.0,  1.0)  * 0.70 * keySpec24;
-
-    // ── 5  GLACIER ───────────────────────────────────────────────────────
     } else if (iColorScheme == 5) {
       vec3 base = mix(vec3(0.50, 0.78, 1.0), vec3(0.92, 0.97, 1.0), normalY);
       color = base                * (keyDiff + 0.16)
@@ -157,8 +138,6 @@ void main() {
             + vec3(0.40, 0.80, 1.0)  * rimDiff
             + vec3(0.75, 0.92, 1.0)  * fresnel * 0.50
             + vec3(1.0,  1.0,  1.0)  * 0.85 * keySpec96;
-
-    // ── 6  TOXIC WASTE ───────────────────────────────────────────────────
     } else if (iColorScheme == 6) {
       vec3 base = mix(vec3(0.18, 0.78, 0.0), vec3(0.68, 1.0, 0.0), normalY);
       color = base                * (keyDiff + 0.08)
@@ -166,8 +145,6 @@ void main() {
             + vec3(0.90, 1.0,  0.0)  * rimDiff
             + vec3(0.50, 1.0,  0.0)  * fresnel * 0.60
             + vec3(0.80, 1.0,  0.50) * 0.40 * keySpec48;
-
-    // ── 7  BLOOD MOON ────────────────────────────────────────────────────
     } else if (iColorScheme == 7) {
       vec3 base = mix(vec3(0.50, 0.0, 0.0), vec3(0.92, 0.05, 0.12), normalY);
       color = base                * (keyDiff + 0.06)
@@ -175,8 +152,6 @@ void main() {
             + vec3(1.0,  0.38, 0.0) * rimDiff
             + vec3(0.80, 0.05, 0.0) * fresnel * 0.80
             + vec3(1.0,  0.60, 0.50) * 0.40 * keySpec48;
-
-    // ── 8  SOLAR FLARE ───────────────────────────────────────────────────
     } else if (iColorScheme == 8) {
       vec3 base = mix(vec3(0.82, 0.50, 0.0), vec3(1.0, 0.96, 0.62), normalY);
       color = base                 * (keyDiff + 0.10)
@@ -184,11 +159,8 @@ void main() {
             + vec3(1.0,  1.0,  1.0)  * rimDiff
             + vec3(1.0,  0.88, 0.45) * fresnel * 0.50
             + vec3(1.0,  1.0,  0.92) * 0.80 * keySpec32;
-
-    // ── 9  MONOCHROME ────────────────────────────────────────────────────
     } else {
       float lum = keyDiff * 0.70 + fillDiff * 0.20 + rimDiff * 0.10 + 0.10;
-      // Depth-based subtle blue tint in far shadow for separation
       vec3 tint = mix(vec3(0.88, 0.92, 1.0), vec3(1.0), lum);
       color = tint * lum + vec3(1.0) * 0.55 * keySpec96;
     }
@@ -200,19 +172,72 @@ void main() {
 }
 `;
 
-function Mandelbulb({ colorScheme }) {
-  const mountRef   = useRef(null);
+// ─── Hi-res resolution for PDF export ───────────────────────────────────────
+const CAPTURE_W = 2560;
+const CAPTURE_H = 2560;
+
+function Mandelbulb({ colorScheme, captureRef }) {
+  const mountRef    = useRef(null);
   const uniformsRef = useRef(null);
-  const initialPos = new THREE.Vector3(0, 0, 8);
+  const initialPos  = new THREE.Vector3(0, 0, 8);
   const { modeRef, mode, pos, tickFly } = useCameraControls(initialPos);
 
-  // Update the shader uniform whenever colorScheme prop changes
+  // ── Expose a high-res capture function to the parent ─────────────────────
+  useEffect(() => {
+    if (!captureRef) return;
+
+    captureRef.current = () => {
+      if (!uniformsRef.current) return null;
+
+      const u = uniformsRef.current;
+
+      // Clone current camera state into a fresh set of uniforms at hi-res
+      const hiUniforms = {
+        iTime:        { value: u.iTime.value },
+        iResolution:  { value: new THREE.Vector2(CAPTURE_W, CAPTURE_H) },
+        iCameraPos:   { value: u.iCameraPos.value.clone() },
+        iForward:     { value: u.iForward.value.clone() },
+        iRight:       { value: u.iRight.value.clone() },
+        iUp:          { value: u.iUp.value.clone() },
+        iColorScheme: { value: u.iColorScheme.value },
+      };
+
+      // Offscreen renderer — preserveDrawingBuffer lets us call toDataURL()
+      const hiRenderer = new THREE.WebGLRenderer({
+        preserveDrawingBuffer: true,
+        antialias: true,
+      });
+      hiRenderer.setSize(CAPTURE_W, CAPTURE_H);
+
+      const hiGeo  = new THREE.PlaneGeometry(2, 2);
+      const hiMat  = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms: hiUniforms });
+      const hiMesh = new THREE.Mesh(hiGeo, hiMat);
+      const hiScene = new THREE.Scene();
+      hiScene.add(hiMesh);
+      const hiCam = new THREE.Camera();
+
+      hiRenderer.render(hiScene, hiCam);
+
+      // JPEG at 95% quality keeps file sizes manageable while looking great
+      const dataUrl = hiRenderer.domElement.toDataURL('image/jpeg', 0.95);
+
+      // Cleanup
+      hiRenderer.dispose();
+      hiGeo.dispose();
+      hiMat.dispose();
+
+      return { dataUrl, width: CAPTURE_W, height: CAPTURE_H };
+    };
+  });   // runs every render so captureRef always has the latest closure
+
+  // ── Sync color scheme uniform ─────────────────────────────────────────────
   useEffect(() => {
     if (uniformsRef.current) {
       uniformsRef.current.iColorScheme.value = colorScheme;
     }
   }, [colorScheme]);
 
+  // ── Three.js setup ────────────────────────────────────────────────────────
   useEffect(() => {
     const scene    = new THREE.Scene();
     const camera   = new THREE.Camera();
@@ -226,7 +251,6 @@ function Mandelbulb({ colorScheme }) {
 
     const geometry = new THREE.PlaneGeometry(2, 2);
 
-    // ORBIT STATE
     let theta  = Math.PI / 4;
     let phi    = 0;
     const radius = 8.0;
@@ -250,13 +274,13 @@ function Mandelbulb({ colorScheme }) {
     const initBasis = getOrbitBasis(initPos);
 
     const uniforms = {
-      iTime:         { value: 0 },
-      iResolution:   { value: new THREE.Vector2(mountRef.current.clientWidth, mountRef.current.clientHeight) },
-      iCameraPos:    { value: initPos },
-      iForward:      { value: initBasis.forward },
-      iRight:        { value: initBasis.right },
-      iUp:           { value: initBasis.up },
-      iColorScheme:  { value: colorScheme },   // ← new
+      iTime:        { value: 0 },
+      iResolution:  { value: new THREE.Vector2(mountRef.current.clientWidth, mountRef.current.clientHeight) },
+      iCameraPos:   { value: initPos },
+      iForward:     { value: initBasis.forward },
+      iRight:       { value: initBasis.right },
+      iUp:          { value: initBasis.up },
+      iColorScheme: { value: colorScheme },
     };
 
     uniformsRef.current = uniforms;
@@ -265,7 +289,6 @@ function Mandelbulb({ colorScheme }) {
     const mesh     = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
-    // MOUSE ORBIT
     let isDragging = false;
     let lastX = 0;
     let lastY = 0;
@@ -285,7 +308,6 @@ function Mandelbulb({ colorScheme }) {
     window.addEventListener("mouseup",    onMouseUp);
     window.addEventListener("mousemove",  onMouseMove);
 
-    // ANIMATION LOOP
     let animationId;
     function animate(time = 0) {
       animationId = requestAnimationFrame(animate);

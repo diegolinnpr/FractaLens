@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 const btnStyle = {
   display: "block",
   width: "100%",
@@ -17,6 +19,27 @@ const activeBtnStyle = {
   borderColor: "var(--text)",
 };
 
+// Distinct style for the download action button
+const downloadBtnStyle = {
+  ...btnStyle,
+  marginBottom: 0,
+  backgroundColor: "transparent",
+  border: "1px solid var(--text)",
+  color: "var(--text)",
+  textAlign: "center",
+  letterSpacing: "2px",
+  fontSize: "11px",
+  textTransform: "uppercase",
+  opacity: 1,
+  transition: "opacity 0.15s",
+};
+
+const downloadBtnLoadingStyle = {
+  ...downloadBtnStyle,
+  opacity: 0.45,
+  cursor: "wait",
+};
+
 export const COLOR_SCHEME_NAMES = [
   "Cosmic Blue",
   "Molten Core",
@@ -30,7 +53,19 @@ export const COLOR_SCHEME_NAMES = [
   "Monochrome",
 ];
 
-function Controls({ setFractalType, fractalType, colorScheme, setColorScheme }) {
+function Controls({ setFractalType, fractalType, colorScheme, setColorScheme, onDownloadPDF }) {
+  const [rendering, setRendering] = useState(false);
+
+  async function handleDownload() {
+    if (rendering) return;
+    setRendering(true);
+    try {
+      await onDownloadPDF();
+    } finally {
+      setRendering(false);
+    }
+  }
+
   return (
     <div style={{
       width: "200px",
@@ -39,6 +74,8 @@ function Controls({ setFractalType, fractalType, colorScheme, setColorScheme }) 
       backgroundColor: "var(--panel)",
       borderLeft: "1px solid var(--border)",
       overflowY: "auto",
+      display: "flex",
+      flexDirection: "column",
     }}>
       {/* ── Fractal Type ── */}
       <div style={{
@@ -86,6 +123,48 @@ function Controls({ setFractalType, fractalType, colorScheme, setColorScheme }) 
           {name}
         </button>
       ))}
+
+      {/* ── Export ── */}
+      <div style={{
+        fontSize: "11px",
+        color: "var(--text-dim)",
+        letterSpacing: "2px",
+        textTransform: "uppercase",
+        borderBottom: "1px solid var(--border)",
+        paddingBottom: "8px",
+        marginBottom: "12px",
+        marginTop: "20px",
+      }}>
+        Export
+      </div>
+
+      <button
+        style={rendering ? downloadBtnLoadingStyle : downloadBtnStyle}
+        onClick={handleDownload}
+        disabled={rendering}
+        title={
+          fractalType === "Mandelbulb"
+            ? "Renders at 2560×2560 — may take a few seconds"
+            : "Renders at 4096×4096"
+        }
+      >
+        {rendering ? "Rendering…" : "⬇ Download PDF"}
+      </button>
+
+      {rendering && (
+        <div style={{
+          marginTop: "8px",
+          fontSize: "10px",
+          color: "var(--text-dim)",
+          letterSpacing: "0.5px",
+          textAlign: "center",
+          lineHeight: 1.5,
+        }}>
+          {fractalType === "Mandelbulb"
+            ? "Raymarching hi-res frame…"
+            : "Capturing point cloud…"}
+        </div>
+      )}
     </div>
   );
 }

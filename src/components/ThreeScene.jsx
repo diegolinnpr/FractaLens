@@ -18,25 +18,15 @@ function gradient(stops, t) {
 }
 
 const POINT_SCHEMES = [
-  // 0 Cosmic Blue
   (t) => gradient([[0, 0.04, 0.18], [0.1, 0.4, 0.9], [0.5, 0.8, 1.0]], t),
-  // 1 Molten Core
   (t) => gradient([[0.12, 0, 0], [0.8, 0.1, 0], [1.0, 0.6, 0], [1.0, 0.95, 0.5]], t),
-  // 2 Neon Void
   (t) => gradient([[0.1, 0, 0.22], [0.7, 0, 0.9], [0, 0.7, 1.0], [0.8, 1.0, 1.0]], t),
-  // 3 Aurora Borealis
   (t) => gradient([[0, 0.08, 0.1], [0, 0.5, 0.4], [0.1, 0.9, 0.6], [0.7, 1.0, 0.8]], t),
-  // 4 Ember Glow
   (t) => gradient([[0.05, 0, 0], [0.7, 0.18, 0], [1.0, 0.58, 0.1], [1.0, 1.0, 0.8]], t),
-  // 5 Glacier
   (t) => gradient([[0.05, 0.1, 0.2], [0.3, 0.52, 0.8], [0.72, 0.87, 1.0], [1.0, 1.0, 1.0]], t),
-  // 6 Toxic Waste
   (t) => gradient([[0.04, 0.1, 0], [0.2, 0.6, 0], [0.6, 1.0, 0], [0.9, 1.0, 0.4]], t),
-  // 7 Blood Moon
   (t) => gradient([[0.05, 0, 0], [0.5, 0, 0.05], [0.9, 0.05, 0.1], [1.0, 0.4, 0.3]], t),
-  // 8 Solar Flare
   (t) => gradient([[0.1, 0.05, 0], [0.7, 0.4, 0], [1.0, 0.82, 0.3], [1.0, 1.0, 0.92]], t),
-  // 9 Monochrome
   (t) => gradient([[0.02, 0.02, 0.02], [0.3, 0.3, 0.3], [0.72, 0.72, 0.72], [1.0, 1.0, 1.0]], t),
 ];
 
@@ -98,8 +88,12 @@ function applyColorScheme(schemeIdx, density, geometry) {
   geometry.attributes.color.needsUpdate = true;
 }
 
+// ─── Hi-res resolution for PDF export ───────────────────────────────────────
+const CAPTURE_W = 4096;
+const CAPTURE_H = 4096;
+
 // ─── Component ──────────────────────────────────────────────────────────────
-function ThreeScene({ type, colorScheme }) {
+function ThreeScene({ type, colorScheme, captureRef }) {
   const totalPointsRef   = useRef(0);
   const visiblePointsRef = useRef(0);
   const buildingRef      = useRef(false);
@@ -109,12 +103,45 @@ function ThreeScene({ type, colorScheme }) {
   const cameraRef        = useRef(null);
   const pointsRef        = useRef(null);
   const orbitRef         = useRef(null);
-  const densityRef       = useRef(null);   // normalized density per point
+  const densityRef       = useRef(null);
   const colorSchemeRef   = useRef(colorScheme);
 
   const { modeRef, mode, pos: flyPos, tickFly } = useCameraControls(
     new THREE.Vector3(0, 0, 5)
   );
+
+  // ── Expose a high-res capture function to the parent ─────────────────────
+  // Runs every render so the closure always sees the latest refs.
+  useEffect(() => {
+    if (!captureRef) return;
+
+    captureRef.current = () => {
+      const renderer = rendererRef.current;
+      const camera   = cameraRef.current;
+      const scene    = sceneRef.current;
+      if (!renderer || !camera || !scene) return null;
+
+      // Remember current viewport
+      const origSize   = new THREE.Vector2();
+      renderer.getSize(origSize);
+      const origAspect = camera.aspect;
+
+      // Resize to hi-res and re-render
+      renderer.setSize(CAPTURE_W, CAPTURE_H);
+      camera.aspect = CAPTURE_W / CAPTURE_H;
+      camera.updateProjectionMatrix();
+      renderer.render(scene, camera);
+
+      const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.95);
+
+      // Restore original viewport
+      renderer.setSize(origSize.x, origSize.y);
+      camera.aspect = origAspect;
+      camera.updateProjectionMatrix();
+
+      return { dataUrl, width: CAPTURE_W, height: CAPTURE_H };
+    };
+  });
 
   // Keep colorSchemeRef in sync
   useEffect(() => {
@@ -135,7 +162,11 @@ function ThreeScene({ type, colorScheme }) {
     camera.position.set(0, 0, 5);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // preserveDrawingBuffer is required for toDataURL() to work correctly
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      preserveDrawingBuffer: true,
+    });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     rendererRef.current = renderer;
     mountRef.current.appendChild(renderer.domElement);
@@ -162,7 +193,6 @@ function ThreeScene({ type, colorScheme }) {
         controls.update();
       }
 
-      // Gradually reveal points
       if (buildingRef.current && pointsRef.current) {
         visiblePointsRef.current += 250;
         if (visiblePointsRef.current >= totalPointsRef.current) {
@@ -185,7 +215,7 @@ function ThreeScene({ type, colorScheme }) {
     };
   }, []);
 
-  // ── Re-apply colors when scheme changes (without reloading binary) ────────
+  // ── Re-apply colors when scheme changes ──────────────────────────────────
   useEffect(() => {
     if (!pointsRef.current || !densityRef.current) return;
     applyColorScheme(colorScheme, densityRef.current, pointsRef.current.geometry);
@@ -220,7 +250,6 @@ function ThreeScene({ type, colorScheme }) {
       .then((buffer) => {
         const positions = new Float32Array(buffer);
 
-        // Compute density
         const density = computeDensity(positions);
         densityRef.current = density;
 
@@ -228,7 +257,6 @@ function ThreeScene({ type, colorScheme }) {
         geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
         geometry.setDrawRange(0, 0);
 
-        // Apply initial color scheme
         applyColorScheme(colorSchemeRef.current, density, geometry);
 
         const material = new THREE.PointsMaterial({
