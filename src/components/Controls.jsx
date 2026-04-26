@@ -11,7 +11,26 @@ const btnStyle = {
   cursor: "pointer",
 };
 
-function Controls({ setFractalType }) {
+const activeBtnStyle = {
+  ...btnStyle,
+  backgroundColor: "var(--border)",
+  borderColor: "var(--text)",
+};
+
+export const COLOR_SCHEME_NAMES = [
+  "Cosmic Blue",
+  "Molten Core",
+  "Neon Void",
+  "Aurora Borealis",
+  "Ember Glow",
+  "Glacier",
+  "Toxic Waste",
+  "Blood Moon",
+  "Solar Flare",
+  "Monochrome",
+];
+
+function Controls({ setFractalType, fractalType, colorScheme, setColorScheme }) {
   return (
     <div style={{
       width: "200px",
@@ -19,7 +38,9 @@ function Controls({ setFractalType }) {
       padding: "16px",
       backgroundColor: "var(--panel)",
       borderLeft: "1px solid var(--border)",
+      overflowY: "auto",
     }}>
+      {/* ── Fractal Type ── */}
       <div style={{
         fontSize: "11px",
         color: "var(--text-dim)",
@@ -32,21 +53,39 @@ function Controls({ setFractalType }) {
         Fractal Type
       </div>
 
-      <button style={btnStyle} onClick={() => setFractalType("Octahedron")}>
-        Octahedron
-      </button>
+      {["Octahedron", "Dodecahedron", "Tetrahedron", "Mandelbulb"].map((name) => (
+        <button
+          key={name}
+          style={fractalType === name ? activeBtnStyle : btnStyle}
+          onClick={() => setFractalType(name)}
+        >
+          {name}
+        </button>
+      ))}
 
-      <button style={btnStyle} onClick={() => setFractalType("Dodecahedron")}>
-        Dodecahedron
-      </button>
+      {/* ── Color Scheme ── */}
+      <div style={{
+        fontSize: "11px",
+        color: "var(--text-dim)",
+        letterSpacing: "2px",
+        textTransform: "uppercase",
+        borderBottom: "1px solid var(--border)",
+        paddingBottom: "8px",
+        marginBottom: "12px",
+        marginTop: "20px",
+      }}>
+        Color Scheme
+      </div>
 
-      <button style={btnStyle} onClick={() => setFractalType("Tetrahedron")}>
-        Tetrahedron
-      </button>
-
-      <button style={btnStyle} onClick={() => setFractalType("Mandelbulb")}>
-        Mandelbulb
-      </button>
+      {COLOR_SCHEME_NAMES.map((name, idx) => (
+        <button
+          key={name}
+          style={colorScheme === idx ? activeBtnStyle : btnStyle}
+          onClick={() => setColorScheme(idx)}
+        >
+          {name}
+        </button>
+      ))}
     </div>
   );
 }

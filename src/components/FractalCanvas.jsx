@@ -2,7 +2,7 @@ import React from "react";
 import ThreeScene from "./ThreeScene";
 import Mandelbulb from "./Mandelbulb";
 
-function FractalCanvas({ type }) {
+function FractalCanvas({ fractalType, colorScheme }) {
   return (
     <div style={{
       flex: 1,
@@ -12,8 +12,8 @@ function FractalCanvas({ type }) {
       color: "white",
       height: "100%",
     }}>
-      {type === "Mandelbulb" ? (
-        <Mandelbulb />
+      {fractalType === "Mandelbulb" ? (
+        <Mandelbulb colorScheme={colorScheme} />
       ) : (
         <>
           <div style={{
@@ -25,10 +25,10 @@ function FractalCanvas({ type }) {
             letterSpacing: "1px",
             flexShrink: 0,
           }}>
-            &gt; {type} Fractal Here
+            &gt; {fractalType} Fractal Here
           </div>
           <div style={{ flex: 1 }}>
-            <ThreeScene type={type} />
+            <ThreeScene type={fractalType} colorScheme={colorScheme} />
           </div>
         </>
       )}
