@@ -2,7 +2,7 @@ import React from "react";
 import ThreeScene from "./ThreeScene";
 import Mandelbulb from "./Mandelbulb";
 
-function FractalCanvas({ fractalType, colorScheme, captureRef }) {
+function FractalCanvas({ fractalType, colorScheme, captureRef, fov, dollyMult }) {
   return (
     <div style={{
       flex: 1,
@@ -13,7 +13,12 @@ function FractalCanvas({ fractalType, colorScheme, captureRef }) {
       height: "100%",
     }}>
       {fractalType === "Mandelbulb" ? (
-        <Mandelbulb colorScheme={colorScheme} captureRef={captureRef} />
+        <Mandelbulb
+          colorScheme={colorScheme}
+          captureRef={captureRef}
+          fov={fov}
+          dollyMult={dollyMult}
+        />
       ) : (
         <>
           <div style={{
@@ -28,7 +33,13 @@ function FractalCanvas({ fractalType, colorScheme, captureRef }) {
             &gt; {fractalType} Fractal Here
           </div>
           <div style={{ flex: 1 }}>
-            <ThreeScene type={fractalType} colorScheme={colorScheme} captureRef={captureRef} />
+            <ThreeScene
+              type={fractalType}
+              colorScheme={colorScheme}
+              captureRef={captureRef}
+              fov={fov}
+              dollyMult={dollyMult}
+            />
           </div>
         </>
       )}

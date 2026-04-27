@@ -18,6 +18,7 @@ uniform vec3  iForward;
 uniform vec3  iRight;
 uniform vec3  iUp;
 uniform int   iColorScheme;
+uniform float iFocalLength;   // derived from FOV: 1/tan(fov/2)
 
 float mandelbulbDE(vec3 pos) {
   vec3 z = pos;
@@ -41,8 +42,8 @@ float mandelbulbDE(vec3 pos) {
 float raymarch(vec3 ro, vec3 rd) {
   float t = 0.0;
   for (int i = 0; i < 500; i++) {
-    vec3  p     = ro + rd * t;
-    float d     = mandelbulbDE(p);
+    vec3  p      = ro + rd * t;
+    float d      = mandelbulbDE(p);
     float thresh = max(0.000015, t * 0.00022);
     if (d < thresh) return t;
     if (t > 20.0)   break;
@@ -67,7 +68,8 @@ void main() {
   vec3 forward = normalize(iForward);
   vec3 right   = normalize(iRight);
   vec3 up      = normalize(iUp);
-  vec3 rd      = normalize(uv.x * right + uv.y * up + 2.5 * forward);
+  // iFocalLength replaces the hardcoded 2.5 — controls field of view
+  vec3 rd      = normalize(uv.x * right + uv.y * up + iFocalLength * forward);
 
   float t = raymarch(ro, rd);
 
@@ -97,72 +99,54 @@ void main() {
 
     if (iColorScheme == 0) {
       vec3 base = mix(vec3(0.1, 0.38, 0.88), vec3(0.45, 0.75, 1.0), normalY);
-      color = base      * (keyDiff + 0.12)
-            + vec3(0.28, 0.50, 0.80) * fillDiff
-            + vec3(0.95, 0.40, 0.15) * rimDiff
-            + vec3(1.0)              * 0.40 * keySpec48;
+      color = base * (keyDiff + 0.12) + vec3(0.28,0.50,0.80)*fillDiff
+            + vec3(0.95,0.40,0.15)*rimDiff + vec3(1.0)*0.40*keySpec48;
     } else if (iColorScheme == 1) {
-      vec3 base = mix(vec3(0.80, 0.06, 0.0), vec3(1.0, 0.56, 0.0), normalY);
-      color = base               * (keyDiff + 0.05)
-            + vec3(0.50, 0.02, 0.0) * fillDiff
-            + vec3(1.0,  0.90, 0.3) * rimDiff
-            + vec3(1.0,  0.55, 0.0) * fresnel * 0.75
-            + vec3(1.0,  0.88, 0.6) * 0.55 * keySpec24;
+      vec3 base = mix(vec3(0.80,0.06,0.0), vec3(1.0,0.56,0.0), normalY);
+      color = base*(keyDiff+0.05) + vec3(0.50,0.02,0.0)*fillDiff
+            + vec3(1.0,0.90,0.3)*rimDiff + vec3(1.0,0.55,0.0)*fresnel*0.75
+            + vec3(1.0,0.88,0.6)*0.55*keySpec24;
     } else if (iColorScheme == 2) {
       vec3 normRGB = abs(normal);
-      vec3 base    = mix(vec3(0.0, 0.80, 1.0), normRGB, 0.55);
-      color = base                * (keyDiff + 0.08)
-            + vec3(0.80, 0.0, 0.90) * fillDiff
-            + vec3(0.50, 0.0, 1.0)  * rimDiff
-            + vec3(0.0,  1.0, 0.88) * fresnel * 0.65
-            + vec3(1.0,  0.4, 1.0)  * 0.50 * keySpec48;
+      vec3 base    = mix(vec3(0.0,0.80,1.0), normRGB, 0.55);
+      color = base*(keyDiff+0.08) + vec3(0.80,0.0,0.90)*fillDiff
+            + vec3(0.50,0.0,1.0)*rimDiff + vec3(0.0,1.0,0.88)*fresnel*0.65
+            + vec3(1.0,0.4,1.0)*0.50*keySpec48;
     } else if (iColorScheme == 3) {
-      vec3 base = mix(vec3(0.0, 0.58, 0.50), vec3(0.18, 0.98, 0.62), normalY);
-      vec3 fill = mix(vec3(0.20, 0.40, 0.80), vec3(0.48, 0.0, 0.60), normalY);
-      color = base                * (keyDiff + 0.08)
-            + fill                * fillDiff
-            + vec3(0.0, 0.50, 1.0)  * rimDiff
-            + vec3(0.15, 1.0, 0.50) * fresnel * 0.40
-            + vec3(0.80, 1.0, 1.0)  * 0.28 * keySpec48;
+      vec3 base = mix(vec3(0.0,0.58,0.50), vec3(0.18,0.98,0.62), normalY);
+      vec3 fill = mix(vec3(0.20,0.40,0.80), vec3(0.48,0.0,0.60), normalY);
+      color = base*(keyDiff+0.08) + fill*fillDiff
+            + vec3(0.0,0.50,1.0)*rimDiff + vec3(0.15,1.0,0.50)*fresnel*0.40
+            + vec3(0.80,1.0,1.0)*0.28*keySpec48;
     } else if (iColorScheme == 4) {
-      vec3 base = mix(vec3(1.0, 0.28, 0.0), vec3(1.0, 0.72, 0.10), normalY);
-      color = base                * (keyDiff + 0.06)
-            + vec3(0.70, 0.05, 0.0) * fillDiff
-            + vec3(1.0,  1.0,  0.80) * rimDiff
-            + vec3(1.0,  0.78, 0.38) * fresnel * 1.0
-            + vec3(1.0,  1.0,  1.0)  * 0.70 * keySpec24;
+      vec3 base = mix(vec3(1.0,0.28,0.0), vec3(1.0,0.72,0.10), normalY);
+      color = base*(keyDiff+0.06) + vec3(0.70,0.05,0.0)*fillDiff
+            + vec3(1.0,1.0,0.80)*rimDiff + vec3(1.0,0.78,0.38)*fresnel*1.0
+            + vec3(1.0,1.0,1.0)*0.70*keySpec24;
     } else if (iColorScheme == 5) {
-      vec3 base = mix(vec3(0.50, 0.78, 1.0), vec3(0.92, 0.97, 1.0), normalY);
-      color = base                * (keyDiff + 0.16)
-            + vec3(0.20, 0.50, 0.90) * fillDiff
-            + vec3(0.40, 0.80, 1.0)  * rimDiff
-            + vec3(0.75, 0.92, 1.0)  * fresnel * 0.50
-            + vec3(1.0,  1.0,  1.0)  * 0.85 * keySpec96;
+      vec3 base = mix(vec3(0.50,0.78,1.0), vec3(0.92,0.97,1.0), normalY);
+      color = base*(keyDiff+0.16) + vec3(0.20,0.50,0.90)*fillDiff
+            + vec3(0.40,0.80,1.0)*rimDiff + vec3(0.75,0.92,1.0)*fresnel*0.50
+            + vec3(1.0,1.0,1.0)*0.85*keySpec96;
     } else if (iColorScheme == 6) {
-      vec3 base = mix(vec3(0.18, 0.78, 0.0), vec3(0.68, 1.0, 0.0), normalY);
-      color = base                * (keyDiff + 0.08)
-            + vec3(0.10, 0.40, 0.0)  * fillDiff
-            + vec3(0.90, 1.0,  0.0)  * rimDiff
-            + vec3(0.50, 1.0,  0.0)  * fresnel * 0.60
-            + vec3(0.80, 1.0,  0.50) * 0.40 * keySpec48;
+      vec3 base = mix(vec3(0.18,0.78,0.0), vec3(0.68,1.0,0.0), normalY);
+      color = base*(keyDiff+0.08) + vec3(0.10,0.40,0.0)*fillDiff
+            + vec3(0.90,1.0,0.0)*rimDiff + vec3(0.50,1.0,0.0)*fresnel*0.60
+            + vec3(0.80,1.0,0.50)*0.40*keySpec48;
     } else if (iColorScheme == 7) {
-      vec3 base = mix(vec3(0.50, 0.0, 0.0), vec3(0.92, 0.05, 0.12), normalY);
-      color = base                * (keyDiff + 0.06)
-            + vec3(0.28, 0.0,  0.0) * fillDiff
-            + vec3(1.0,  0.38, 0.0) * rimDiff
-            + vec3(0.80, 0.05, 0.0) * fresnel * 0.80
-            + vec3(1.0,  0.60, 0.50) * 0.40 * keySpec48;
+      vec3 base = mix(vec3(0.50,0.0,0.0), vec3(0.92,0.05,0.12), normalY);
+      color = base*(keyDiff+0.06) + vec3(0.28,0.0,0.0)*fillDiff
+            + vec3(1.0,0.38,0.0)*rimDiff + vec3(0.80,0.05,0.0)*fresnel*0.80
+            + vec3(1.0,0.60,0.50)*0.40*keySpec48;
     } else if (iColorScheme == 8) {
-      vec3 base = mix(vec3(0.82, 0.50, 0.0), vec3(1.0, 0.96, 0.62), normalY);
-      color = base                 * (keyDiff + 0.10)
-            + vec3(1.0,  0.85, 0.50) * fillDiff
-            + vec3(1.0,  1.0,  1.0)  * rimDiff
-            + vec3(1.0,  0.88, 0.45) * fresnel * 0.50
-            + vec3(1.0,  1.0,  0.92) * 0.80 * keySpec32;
+      vec3 base = mix(vec3(0.82,0.50,0.0), vec3(1.0,0.96,0.62), normalY);
+      color = base*(keyDiff+0.10) + vec3(1.0,0.85,0.50)*fillDiff
+            + vec3(1.0,1.0,1.0)*rimDiff + vec3(1.0,0.88,0.45)*fresnel*0.50
+            + vec3(1.0,1.0,0.92)*0.80*keySpec32;
     } else {
-      float lum = keyDiff * 0.70 + fillDiff * 0.20 + rimDiff * 0.10 + 0.10;
-      vec3 tint = mix(vec3(0.88, 0.92, 1.0), vec3(1.0), lum);
-      color = tint * lum + vec3(1.0) * 0.55 * keySpec96;
+      float lum  = keyDiff*0.70 + fillDiff*0.20 + rimDiff*0.10 + 0.10;
+      vec3 tint  = mix(vec3(0.88,0.92,1.0), vec3(1.0), lum);
+      color = tint * lum + vec3(1.0)*0.55*keySpec96;
     }
 
     gl_FragColor = vec4(color, 1.0);
@@ -172,26 +156,55 @@ void main() {
 }
 `;
 
-// ─── Hi-res resolution for PDF export ───────────────────────────────────────
-const CAPTURE_W = 2560;
-const CAPTURE_H = 2560;
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const BASE_RADIUS   = 8.0;
+const CAPTURE_W     = 2560;
+const CAPTURE_H     = 2560;
 
-function Mandelbulb({ colorScheme, captureRef }) {
+function focalLengthFromFov(fovDeg) {
+  // Maps FOV angle to the projection divisor in the ray formula:
+  //   rd = normalize(uv * right + uv * up + focalLength * forward)
+  // focalLength = 1 / tan(fov/2)  gives the correct angular mapping.
+  return 1.0 / Math.tan((fovDeg * Math.PI) / 180 / 2);
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
   const mountRef    = useRef(null);
   const uniformsRef = useRef(null);
-  const initialPos  = new THREE.Vector3(0, 0, 8);
+
+  // Refs that the animation loop reads every frame (avoids stale closures)
+  const fovRef       = useRef(fov);
+  const dollyMultRef = useRef(dollyMult);
+
+  const initialPos = new THREE.Vector3(0, 0, BASE_RADIUS);
   const { modeRef, mode, pos, tickFly } = useCameraControls(initialPos);
 
-  // ── Expose a high-res capture function to the parent ─────────────────────
+  // ── Keep refs in sync with props ──────────────────────────────────────────
+  useEffect(() => {
+    fovRef.current = fov;
+    if (uniformsRef.current) {
+      uniformsRef.current.iFocalLength.value = focalLengthFromFov(fov);
+    }
+  }, [fov]);
+
+  useEffect(() => {
+    dollyMultRef.current = dollyMult;
+  }, [dollyMult]);
+
+  useEffect(() => {
+    if (uniformsRef.current) {
+      uniformsRef.current.iColorScheme.value = colorScheme;
+    }
+  }, [colorScheme]);
+
+  // ── Capture function (runs at hi-res in an offscreen renderer) ────────────
   useEffect(() => {
     if (!captureRef) return;
-
     captureRef.current = () => {
-      if (!uniformsRef.current) return null;
-
       const u = uniformsRef.current;
+      if (!u) return null;
 
-      // Clone current camera state into a fresh set of uniforms at hi-res
       const hiUniforms = {
         iTime:        { value: u.iTime.value },
         iResolution:  { value: new THREE.Vector2(CAPTURE_W, CAPTURE_H) },
@@ -200,66 +213,46 @@ function Mandelbulb({ colorScheme, captureRef }) {
         iRight:       { value: u.iRight.value.clone() },
         iUp:          { value: u.iUp.value.clone() },
         iColorScheme: { value: u.iColorScheme.value },
+        iFocalLength: { value: u.iFocalLength.value },
       };
 
-      // Offscreen renderer — preserveDrawingBuffer lets us call toDataURL()
-      const hiRenderer = new THREE.WebGLRenderer({
-        preserveDrawingBuffer: true,
-        antialias: true,
-      });
+      const hiRenderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true, antialias: true });
       hiRenderer.setSize(CAPTURE_W, CAPTURE_H);
 
-      const hiGeo  = new THREE.PlaneGeometry(2, 2);
-      const hiMat  = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms: hiUniforms });
-      const hiMesh = new THREE.Mesh(hiGeo, hiMat);
+      const hiGeo   = new THREE.PlaneGeometry(2, 2);
+      const hiMat   = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms: hiUniforms });
       const hiScene = new THREE.Scene();
-      hiScene.add(hiMesh);
-      const hiCam = new THREE.Camera();
+      hiScene.add(new THREE.Mesh(hiGeo, hiMat));
 
-      hiRenderer.render(hiScene, hiCam);
+      hiRenderer.render(hiScene, new THREE.Camera());
+      const dataUrl = hiRenderer.domElement.toDataURL("image/jpeg", 0.95);
 
-      // JPEG at 95% quality keeps file sizes manageable while looking great
-      const dataUrl = hiRenderer.domElement.toDataURL('image/jpeg', 0.95);
-
-      // Cleanup
-      hiRenderer.dispose();
-      hiGeo.dispose();
-      hiMat.dispose();
-
+      hiRenderer.dispose(); hiGeo.dispose(); hiMat.dispose();
       return { dataUrl, width: CAPTURE_W, height: CAPTURE_H };
     };
-  });   // runs every render so captureRef always has the latest closure
+  });
 
-  // ── Sync color scheme uniform ─────────────────────────────────────────────
-  useEffect(() => {
-    if (uniformsRef.current) {
-      uniformsRef.current.iColorScheme.value = colorScheme;
-    }
-  }, [colorScheme]);
-
-  // ── Three.js setup ────────────────────────────────────────────────────────
+  // ── Three.js setup (runs once) ────────────────────────────────────────────
   useEffect(() => {
     const scene    = new THREE.Scene();
     const camera   = new THREE.Camera();
     const renderer = new THREE.WebGLRenderer();
 
-    renderer.setSize(
-      mountRef.current.clientWidth,
-      mountRef.current.clientHeight
-    );
+    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     mountRef.current.appendChild(renderer.domElement);
 
     const geometry = new THREE.PlaneGeometry(2, 2);
 
-    let theta  = Math.PI / 4;
-    let phi    = 0;
-    const radius = 8.0;
+    // Spherical orbit state
+    let theta = Math.PI / 4;
+    let phi   = 0;
 
     function getCameraPos() {
+      const r = BASE_RADIUS * dollyMultRef.current;
       return new THREE.Vector3(
-        radius * Math.sin(theta) * Math.cos(phi),
-        radius * Math.cos(theta),
-        radius * Math.sin(theta) * Math.sin(phi)
+        r * Math.sin(theta) * Math.cos(phi),
+        r * Math.cos(theta),
+        r * Math.sin(theta) * Math.sin(phi)
       );
     }
 
@@ -281,33 +274,29 @@ function Mandelbulb({ colorScheme, captureRef }) {
       iRight:       { value: initBasis.right },
       iUp:          { value: initBasis.up },
       iColorScheme: { value: colorScheme },
+      iFocalLength: { value: focalLengthFromFov(fov) },
     };
-
     uniformsRef.current = uniforms;
 
     const material = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms });
-    const mesh     = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
+    scene.add(new THREE.Mesh(geometry, material));
 
-    let isDragging = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    const onMouseDown = (e) => { isDragging = true;  lastX = e.clientX; lastY = e.clientY; };
+    // Mouse orbit
+    let isDragging = false, lastX = 0, lastY = 0;
+    const onMouseDown = (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; };
     const onMouseUp   = ()    => { isDragging = false; };
     const onMouseMove = (e)   => {
       if (!isDragging || modeRef.current !== "orbit") return;
       phi   -= (e.clientX - lastX) * 0.005;
       theta -= (e.clientY - lastY) * 0.005;
       theta  = Math.max(0.1, Math.min(Math.PI - 0.1, theta));
-      lastX  = e.clientX;
-      lastY  = e.clientY;
+      lastX = e.clientX; lastY = e.clientY;
     };
-
     renderer.domElement.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mouseup",    onMouseUp);
-    window.addEventListener("mousemove",  onMouseMove);
+    window.addEventListener("mouseup",   onMouseUp);
+    window.addEventListener("mousemove", onMouseMove);
 
+    // Animation loop
     let animationId;
     function animate(time = 0) {
       animationId = requestAnimationFrame(animate);
@@ -320,6 +309,7 @@ function Mandelbulb({ colorScheme, captureRef }) {
         uniforms.iRight.value.copy(right);
         uniforms.iUp.value.copy(up);
       } else {
+        // dollyMultRef is read here every frame — orbit radius updates instantly
         const ro = getCameraPos();
         const { forward, right, up } = getOrbitBasis(ro);
         uniforms.iCameraPos.value.copy(ro);
