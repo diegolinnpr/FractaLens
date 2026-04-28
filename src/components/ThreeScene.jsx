@@ -171,10 +171,6 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
       }
 
       // ── Dolly-zoom: scale camera distance from origin ─────────────────────
-      // Applies in BOTH orbit and fly mode. We compare the current dollyMult
-      // against the last-applied value and scale the camera's distance from
-      // origin by the ratio. This keeps whatever the camera is pointing at
-      // at the same angular position on screen (classic Hitchcock zoom).
       const curDolly  = dollyMultRef.current;
       const prevDolly = prevDollyRef.current;
       const dollyDelta = Math.abs(curDolly - prevDolly);
@@ -183,13 +179,11 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
         const ratio = curDolly / prevDolly;
 
         if (modeRef.current === "fly") {
-          // Scale fly position from the origin
           const len = flyPos.current.length();
           if (len > 0.001) {
             flyPos.current.multiplyScalar(ratio);
           }
         } else {
-          // Scale orbit camera position; OrbitControls tracks the new distance
           camera.position.multiplyScalar(ratio);
           controls.update();
         }
@@ -217,7 +211,7 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
         }
         pointsRef.current.geometry.setDrawRange(0, visiblePointsRef.current);
         const progress = visiblePointsRef.current / totalPointsRef.current;
-        pointsRef.current.material.opacity = 2**(-progress)
+        pointsRef.current.material.opacity = 2**(-progress);
       }
 
       renderer.render(scene, camera);

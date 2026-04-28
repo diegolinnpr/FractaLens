@@ -182,7 +182,7 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
 
   const initialPos = new THREE.Vector3(0, 0, BASE_RADIUS);
   // useCameraControls exposes yaw + pitch so we can compute forward in fly mode
-  const { modeRef, mode, pos, yaw, pitch, tickFly } = useCameraControls(initialPos);
+  const { modeRef, mode, pos, tickFly } = useCameraControls(initialPos);
 
   // ── Sync prop → ref ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -307,9 +307,6 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
 
       if (dollyDelta > 0.00005 && modeRef.current === "fly") {
         // Scale the camera's distance from the origin by the dolly ratio.
-        // This keeps the fractal at the same angular position on screen
-        // (origin subtends the same angle from camera's perspective)
-        // regardless of where the camera is pointing.
         const len = pos.current.length();
         if (len > 0.001) {
           pos.current.multiplyScalar(curDolly / prevDolly);

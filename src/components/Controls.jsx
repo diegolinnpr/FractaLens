@@ -53,7 +53,7 @@ function injectSliderCSS() {
   document.head.appendChild(el);
 }
 
-// ─── Shared button styles ─────────────────────────────────────────────────────
+// ─── Shared styles ────────────────────────────────────────────────────────────
 const btnStyle = {
   display: "block",
   width: "100%",
@@ -99,13 +99,27 @@ const sectionHeadStyle = {
 const firstSectionHeadStyle = { ...sectionHeadStyle, marginTop: 0 };
 
 export const COLOR_SCHEME_NAMES = [
-  "Cosmic Blue","Molten Core","Neon Void","Aurora Borealis","Ember Glow",
-  "Glacier","Toxic Waste","Blood Moon","Solar Flare","Monochrome",
+  "Cosmic Blue", "Molten Core", "Neon Void", "Aurora Borealis", "Ember Glow",
+  "Glacier", "Toxic Waste", "Blood Moon", "Solar Flare", "Monochrome",
 ];
 
 // Dolly slider: 0.25 – 4.0, displayed as "telephoto ← → wide"
 const DOLLY_MIN = 0.25;
 const DOLLY_MAX = 4.0;
+
+const CHAOS_GAME_FRACTALS = ["Octahedron", "Dodecahedron", "Tetrahedron"];
+const FRACTALS_3D         = ["Mandelbulb"];
+const LANDSCAPE_FRACTALS  = ["KochCoastline", "KochVisualization", "LichtenbergLightning"];
+
+const FRACTAL_LABELS = {
+  Octahedron:            "Octahedron",
+  Dodecahedron:          "Dodecahedron",
+  Tetrahedron:           "Tetrahedron",
+  Mandelbulb:            "Mandelbulb",
+  KochCoastline:         "Koch Coastline",
+  KochVisualization:     "Koch Visualization",
+  LichtenbergLightning:  "Lichtenberg Lightning",
+};
 
 function SliderRow({ label, value, displayValue, min, max, step, onChange, className = "" }) {
   return (
@@ -141,10 +155,21 @@ function SliderRow({ label, value, displayValue, min, max, step, onChange, class
   );
 }
 
+function FractalBtn({ name, fractalType, setFractalType }) {
+  return (
+    <button
+      style={fractalType === name ? activeBtnStyle : btnStyle}
+      onClick={() => setFractalType(name)}
+    >
+      {FRACTAL_LABELS[name]}
+    </button>
+  );
+}
+
 function Controls({
   setFractalType, fractalType,
   colorScheme, setColorScheme,
-  onDownloadPDF,
+  onDownloadImage,
   fov, dollyMult,
   onFovChange, onDollyChange,
 }) {
@@ -155,15 +180,16 @@ function Controls({
   async function handleDownload() {
     if (rendering) return;
     setRendering(true);
-    try { await onDownloadPDF(); } finally { setRendering(false); }
+    try { await onDownloadImage(); } finally { setRendering(false); }
   }
 
-  // Human-readable dolly label
   const dollyLabel = dollyMult < 0.95
     ? `${(1 / dollyMult).toFixed(1)}× closer · wide`
     : dollyMult > 1.05
     ? `${dollyMult.toFixed(1)}× farther · tele`
     : "neutral";
+
+  const supportsCapture = !LANDSCAPE_FRACTALS.includes(fractalType);
 
   return (
     <div style={{
@@ -177,14 +203,50 @@ function Controls({
       flexDirection: "column",
     }}>
 
-      {/* ── Fractal Type ── */}
-      <div style={firstSectionHeadStyle}>Fractal Type</div>
-      {["Octahedron","Dodecahedron","Tetrahedron","Mandelbulb"].map((name) => (
-        <button key={name} style={fractalType === name ? activeBtnStyle : btnStyle}
-          onClick={() => setFractalType(name)}>
-          {name}
-        </button>
+      {/* ── Chaos Game Fractals ── */}
+      <div style={firstSectionHeadStyle}>Chaos Game</div>
+      {CHAOS_GAME_FRACTALS.map((name) => (
+        <FractalBtn key={name} name={name} fractalType={fractalType} setFractalType={setFractalType} />
       ))}
+
+      {/* ── 3D Fractals ── */}
+      <div style={sectionHeadStyle}>3D Fractals</div>
+      {FRACTALS_3D.map((name) => (
+        <FractalBtn key={name} name={name} fractalType={fractalType} setFractalType={setFractalType} />
+      ))}
+
+      {/* ── Landscape Fractals ── */}
+      <div style={sectionHeadStyle}>Landscape</div>
+      {LANDSCAPE_FRACTALS.map((name) => (
+        <FractalBtn key={name} name={name} fractalType={fractalType} setFractalType={setFractalType} />
+      ))}
+
+      {/* ── Color Scheme ── */}
+      <div style={sectionHeadStyle}>Color Scheme</div>
+      <select
+        value={colorScheme}
+        onChange={(e) => setColorScheme(parseInt(e.target.value))}
+        style={{
+          display: "block",
+          width: "100%",
+          padding: "8px 12px",
+          marginBottom: "14px",
+          backgroundColor: "var(--panel)",
+          color: "var(--text)",
+          border: "1px solid var(--border)",
+          letterSpacing: "1px",
+          cursor: "pointer",
+          appearance: "none",
+          WebkitAppearance: "none",
+          fontSize: "12px",
+          outline: "none",
+          fontFamily: "var(--font)",
+        }}
+      >
+        {COLOR_SCHEME_NAMES.map((name, idx) => (
+          <option key={name} value={idx}>{name}</option>
+        ))}
+      </select>
 
       {/* ── Camera ── */}
       <div style={sectionHeadStyle}>Camera</div>
@@ -225,30 +287,25 @@ function Controls({
         <span>TELE</span>
       </div>
 
-      {/* ── Color Scheme ── */}
-      <div style={sectionHeadStyle}>Color Scheme</div>
-      {COLOR_SCHEME_NAMES.map((name, idx) => (
-        <button key={name} style={colorScheme === idx ? activeBtnStyle : btnStyle}
-          onClick={() => setColorScheme(idx)}>
-          {name}
-        </button>
-      ))}
-
       {/* ── Export ── */}
-      <div style={sectionHeadStyle}>Export</div>
-      <button
-        style={{ ...downloadBtnStyle, opacity: rendering ? 0.45 : 1, cursor: rendering ? "wait" : "pointer" }}
-        onClick={handleDownload}
-        disabled={rendering}
-        title={fractalType === "Mandelbulb" ? "Renders at 2560×2560" : "Renders at 4096×4096"}
-      >
-        {rendering ? "Rendering…" : "⬇ Download PDF"}
-      </button>
-      {rendering && (
-        <div style={{ marginTop: "8px", fontSize: "10px", color: "var(--text-dim)",
-          textAlign: "center", lineHeight: 1.5 }}>
-          {fractalType === "Mandelbulb" ? "Raymarching hi-res frame…" : "Capturing point cloud…"}
-        </div>
+      {supportsCapture && (
+        <>
+          <div style={sectionHeadStyle}>Export</div>
+          <button
+            style={{ ...downloadBtnStyle, opacity: rendering ? 0.45 : 1, cursor: rendering ? "wait" : "pointer" }}
+            onClick={handleDownload}
+            disabled={rendering}
+            title={fractalType === "Mandelbulb" ? "Renders at 2560×2560" : "Renders at 4096×4096"}
+          >
+            {rendering ? "Rendering…" : "⬇ Download Hi-Res"}
+          </button>
+          {rendering && (
+            <div style={{ marginTop: "8px", fontSize: "10px", color: "var(--text-dim)",
+              textAlign: "center", lineHeight: 1.5 }}>
+              {fractalType === "Mandelbulb" ? "Raymarching hi-res frame…" : "Capturing point cloud…"}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
