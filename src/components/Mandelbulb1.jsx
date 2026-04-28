@@ -20,13 +20,23 @@ uniform vec3  iUp;
 uniform int   iColorScheme;
 uniform float iFocalLength;
 
+float safeLogRadius(float r) {
+  return log(max(r, 1e-6));
+}
+
 float mandelbulbDE(vec3 pos) {
   vec3 z = pos;
   float dr = 1.0;
-  float r  = 0.0;
+  float r = 0.0;
+
   for (int i = 0; i < 500; i++) {
     r = length(z);
-    if (r > 2.0 || r < 0.001) break;
+    if (r > 2.0) break;
+
+    if (r < 1e-6) {
+      return 0.0;
+    }
+
     float theta = acos(clamp(z.z / r, -1.0, 1.0));
     float phi   = atan(z.y, z.x);
     float power = 8.0;
@@ -34,35 +44,42 @@ float mandelbulbDE(vec3 pos) {
     dr          = pow(r, power - 1.0) * power * dr + 1.0;
     theta *= power;
     phi   *= power;
-    z = zr * vec3(sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta)) + pos;
+    z = zr * vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)) + pos;
   }
-  return 0.5 * log(r) * r / dr;
+
+  float d = 0.5 * safeLogRadius(r) * r / max(dr, 1e-6);
+  return d;
 }
 
 float raymarch(vec3 ro, vec3 rd) {
-  // Skip the guaranteed-empty sphere around the camera to reach the bulb
-  // faster from any distance, and extend tMax so far cameras don't clip.
   float camDist = length(ro);
-  float t    = max(0.0, camDist - 2.2);   // jump to edge of bulb bounding sphere
-  float tMax = camDist + 4.0;             // stop just past the far side
+  float t = max(0.0, camDist - 2.2);
+  float tMax = camDist + 10.0;
 
   for (int i = 0; i < 512; i++) {
-    vec3  p      = ro + rd * t;
-    float d      = mandelbulbDE(p);
-    float thresh = max(0.000012, t * 0.00018);
-    if (d < thresh) return t;
-    if (t > tMax)   break;
-    t += d * 0.55;
+    vec3 p = ro + rd * t;
+    float d = mandelbulbDE(p);
+    float absD = abs(d);
+    float thresh = max(0.000015, t * 0.00016);
+
+    if (absD < thresh) return t;
+    if (t > tMax) break;
+
+    t += max(absD * 0.55, 0.0008);
   }
   return -1.0;
 }
 
 vec3 getNormal(vec3 p, float t) {
   float eps = max(0.000004, t * 0.000035);
-  float dx = mandelbulbDE(p + vec3(eps,0,0)) - mandelbulbDE(p - vec3(eps,0,0));
-  float dy = mandelbulbDE(p + vec3(0,eps,0)) - mandelbulbDE(p - vec3(0,eps,0));
-  float dz = mandelbulbDE(p + vec3(0,0,eps)) - mandelbulbDE(p - vec3(0,0,eps));
+  float dx = mandelbulbDE(p + vec3(eps, 0, 0)) - mandelbulbDE(p - vec3(eps, 0, 0));
+  float dy = mandelbulbDE(p + vec3(0, eps, 0)) - mandelbulbDE(p - vec3(0, eps, 0));
+  float dz = mandelbulbDE(p + vec3(0, 0, eps)) - mandelbulbDE(p - vec3(0, 0, eps));
   return normalize(vec3(dx, dy, dz));
+}
+
+vec3 cameraRingLight(vec3 forward, vec3 right, vec3 up) {
+  return normalize(forward * 0.88 + right * 0.18 + up * 0.22);
 }
 
 void main() {
@@ -82,13 +99,19 @@ void main() {
     vec3 normal  = getNormal(p, t);
     vec3 viewDir = normalize(ro - p);
 
-    vec3  keyDir  = normalize(vec3( 1.0,  1.2,  0.8));
-    vec3  fillDir = normalize(vec3(-1.2,  0.4,  0.3));
-    vec3  rimDir  = normalize(vec3( 0.1, -1.0, -0.8));
+    if (dot(normal, viewDir) < 0.0) {
+      normal = -normal;
+    }
+
+    vec3 keyDir  = cameraRingLight(forward, right, up);
+    vec3 fillDir = normalize(-right * 0.75 + up * 0.35 + forward * 0.30);
+    vec3 rimDir  = normalize(-forward * 0.92 + up * 0.18 - right * 0.12);
+    vec3 backDir = normalize(-forward * 0.55 + right * 0.25 - up * 0.10);
 
     float keyDiff  = max(dot(normal, keyDir),  0.0);
     float fillDiff = max(dot(normal, fillDir), 0.0) * 0.45;
-    float rimDiff  = max(dot(normal, rimDir),  0.0) * 0.25;
+    float rimDiff  = max(dot(normal, rimDir),  0.0) * 0.28;
+    float backDiff = max(dot(normal, backDir), 0.0) * 0.18;
 
     float keySpec48 = pow(max(dot(viewDir, reflect(-keyDir, normal)), 0.0), 48.0);
     float keySpec24 = pow(max(dot(viewDir, reflect(-keyDir, normal)), 0.0), 24.0);
@@ -102,55 +125,67 @@ void main() {
 
     if (iColorScheme == 0) {
       vec3 base = mix(vec3(0.1, 0.38, 0.88), vec3(0.45, 0.75, 1.0), normalY);
-      color = base*(keyDiff+0.12) + vec3(0.28,0.50,0.80)*fillDiff
-            + vec3(0.95,0.40,0.15)*rimDiff + vec3(1.0)*0.40*keySpec48;
+      color = base * (keyDiff + 0.12) + vec3(0.28, 0.50, 0.80) * fillDiff
+            + vec3(0.95, 0.40, 0.15) * rimDiff + vec3(1.0) * 0.40 * keySpec48
+            + vec3(0.25, 0.45, 0.75) * backDiff;
     } else if (iColorScheme == 1) {
-      vec3 base = mix(vec3(0.80,0.06,0.0), vec3(1.0,0.56,0.0), normalY);
-      color = base*(keyDiff+0.05) + vec3(0.50,0.02,0.0)*fillDiff
-            + vec3(1.0,0.90,0.3)*rimDiff + vec3(1.0,0.55,0.0)*fresnel*0.75
-            + vec3(1.0,0.88,0.6)*0.55*keySpec24;
+      vec3 base = mix(vec3(0.80, 0.06, 0.0), vec3(1.0, 0.56, 0.0), normalY);
+      color = base * (keyDiff + 0.05) + vec3(0.50, 0.02, 0.0) * fillDiff
+            + vec3(1.0, 0.90, 0.3) * rimDiff + vec3(1.0, 0.55, 0.0) * fresnel * 0.75
+            + vec3(1.0, 0.88, 0.6) * 0.55 * keySpec24
+            + vec3(0.35, 0.12, 0.0) * backDiff;
     } else if (iColorScheme == 2) {
       vec3 normRGB = abs(normal);
-      vec3 base    = mix(vec3(0.0,0.80,1.0), normRGB, 0.55);
-      color = base*(keyDiff+0.08) + vec3(0.80,0.0,0.90)*fillDiff
-            + vec3(0.50,0.0,1.0)*rimDiff + vec3(0.0,1.0,0.88)*fresnel*0.65
-            + vec3(1.0,0.4,1.0)*0.50*keySpec48;
+      vec3 base    = mix(vec3(0.0, 0.80, 1.0), normRGB, 0.55);
+      color = base * (keyDiff + 0.08) + vec3(0.80, 0.0, 0.90) * fillDiff
+            + vec3(0.50, 0.0, 1.0) * rimDiff + vec3(0.0, 1.0, 0.88) * fresnel * 0.65
+            + vec3(1.0, 0.4, 1.0) * 0.50 * keySpec48
+            + vec3(0.12, 0.30, 0.40) * backDiff;
     } else if (iColorScheme == 3) {
-      vec3 base = mix(vec3(0.0,0.58,0.50), vec3(0.18,0.98,0.62), normalY);
-      vec3 fill = mix(vec3(0.20,0.40,0.80), vec3(0.48,0.0,0.60), normalY);
-      color = base*(keyDiff+0.08) + fill*fillDiff
-            + vec3(0.0,0.50,1.0)*rimDiff + vec3(0.15,1.0,0.50)*fresnel*0.40
-            + vec3(0.80,1.0,1.0)*0.28*keySpec48;
+      vec3 base = mix(vec3(0.0, 0.58, 0.50), vec3(0.18, 0.98, 0.62), normalY);
+      vec3 fill = mix(vec3(0.20, 0.40, 0.80), vec3(0.48, 0.0, 0.60), normalY);
+      color = base * (keyDiff + 0.08) + fill * fillDiff
+            + vec3(0.0, 0.50, 1.0) * rimDiff + vec3(0.15, 1.0, 0.50) * fresnel * 0.40
+            + vec3(0.80, 1.0, 1.0) * 0.28 * keySpec48
+            + vec3(0.10, 0.20, 0.16) * backDiff;
     } else if (iColorScheme == 4) {
-      vec3 base = mix(vec3(1.0,0.28,0.0), vec3(1.0,0.72,0.10), normalY);
-      color = base*(keyDiff+0.06) + vec3(0.70,0.05,0.0)*fillDiff
-            + vec3(1.0,1.0,0.80)*rimDiff + vec3(1.0,0.78,0.38)*fresnel*1.0
-            + vec3(1.0,1.0,1.0)*0.70*keySpec24;
+      vec3 base = mix(vec3(1.0, 0.28, 0.0), vec3(1.0, 0.72, 0.10), normalY);
+      color = base * (keyDiff + 0.06) + vec3(0.70, 0.05, 0.0) * fillDiff
+            + vec3(1.0, 1.0, 0.80) * rimDiff + vec3(1.0, 0.78, 0.38) * fresnel * 1.0
+            + vec3(1.0, 1.0, 1.0) * 0.70 * keySpec24
+            + vec3(0.35, 0.10, 0.0) * backDiff;
     } else if (iColorScheme == 5) {
-      vec3 base = mix(vec3(0.50,0.78,1.0), vec3(0.92,0.97,1.0), normalY);
-      color = base*(keyDiff+0.16) + vec3(0.20,0.50,0.90)*fillDiff
-            + vec3(0.40,0.80,1.0)*rimDiff + vec3(0.75,0.92,1.0)*fresnel*0.50
-            + vec3(1.0,1.0,1.0)*0.85*keySpec96;
+      vec3 base = mix(vec3(0.50, 0.78, 1.0), vec3(0.92, 0.97, 1.0), normalY);
+      color = base * (keyDiff + 0.16) + vec3(0.20, 0.50, 0.90) * fillDiff
+            + vec3(0.40, 0.80, 1.0) * rimDiff + vec3(0.75, 0.92, 1.0) * fresnel * 0.50
+            + vec3(1.0, 1.0, 1.0) * 0.85 * keySpec96
+            + vec3(0.15, 0.22, 0.30) * backDiff;
     } else if (iColorScheme == 6) {
-      vec3 base = mix(vec3(0.18,0.78,0.0), vec3(0.68,1.0,0.0), normalY);
-      color = base*(keyDiff+0.08) + vec3(0.10,0.40,0.0)*fillDiff
-            + vec3(0.90,1.0,0.0)*rimDiff + vec3(0.50,1.0,0.0)*fresnel*0.60
-            + vec3(0.80,1.0,0.50)*0.40*keySpec48;
+      vec3 base = mix(vec3(0.18, 0.78, 0.0), vec3(0.68, 1.0, 0.0), normalY);
+      color = base * (keyDiff + 0.08) + vec3(0.10, 0.40, 0.0) * fillDiff
+            + vec3(0.90, 1.0, 0.0) * rimDiff + vec3(0.50, 1.0, 0.0) * fresnel * 0.60
+            + vec3(0.80, 1.0, 0.50) * 0.40 * keySpec48
+            + vec3(0.08, 0.18, 0.04) * backDiff;
     } else if (iColorScheme == 7) {
-      vec3 base = mix(vec3(0.50,0.0,0.0), vec3(0.92,0.05,0.12), normalY);
-      color = base*(keyDiff+0.06) + vec3(0.28,0.0,0.0)*fillDiff
-            + vec3(1.0,0.38,0.0)*rimDiff + vec3(0.80,0.05,0.0)*fresnel*0.80
-            + vec3(1.0,0.60,0.50)*0.40*keySpec48;
+      vec3 base = mix(vec3(0.50, 0.0, 0.0), vec3(0.92, 0.05, 0.12), normalY);
+      color = base * (keyDiff + 0.06) + vec3(0.28, 0.0, 0.0) * fillDiff
+            + vec3(1.0, 0.38, 0.0) * rimDiff + vec3(0.80, 0.05, 0.0) * fresnel * 0.80
+            + vec3(1.0, 0.60, 0.50) * 0.40 * keySpec48
+            + vec3(0.18, 0.05, 0.03) * backDiff;
     } else if (iColorScheme == 8) {
-      vec3 base = mix(vec3(0.82,0.50,0.0), vec3(1.0,0.96,0.62), normalY);
-      color = base*(keyDiff+0.10) + vec3(1.0,0.85,0.50)*fillDiff
-            + vec3(1.0,1.0,1.0)*rimDiff + vec3(1.0,0.88,0.45)*fresnel*0.50
-            + vec3(1.0,1.0,0.92)*0.80*keySpec32;
+      vec3 base = mix(vec3(0.82, 0.50, 0.0), vec3(1.0, 0.96, 0.62), normalY);
+      color = base * (keyDiff + 0.10) + vec3(1.0, 0.85, 0.50) * fillDiff
+            + vec3(1.0, 1.0, 1.0) * rimDiff + vec3(1.0, 0.88, 0.45) * fresnel * 0.50
+            + vec3(1.0, 1.0, 0.92) * 0.80 * keySpec32
+            + vec3(0.30, 0.18, 0.02) * backDiff;
     } else {
-      float lum = keyDiff*0.70 + fillDiff*0.20 + rimDiff*0.10 + 0.10;
-      vec3 tint = mix(vec3(0.88,0.92,1.0), vec3(1.0), lum);
-      color = tint*lum + vec3(1.0)*0.55*keySpec96;
+      float lum = keyDiff * 0.70 + fillDiff * 0.20 + rimDiff * 0.10 + backDiff * 0.10 + 0.10;
+      vec3 tint = mix(vec3(0.88, 0.92, 1.0), vec3(1.0), lum);
+      color = tint * lum + vec3(1.0) * 0.55 * keySpec96;
     }
+
+    float cutaway = smoothstep(-0.15, 0.25, dot(normal, forward));
+    color *= mix(0.62, 1.0, cutaway);
 
     gl_FragColor = vec4(color, 1.0);
   } else {
@@ -159,32 +194,25 @@ void main() {
 }
 `;
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_RADIUS = 8.0;
-const CAPTURE_W   = 2560;
-const CAPTURE_H   = 2560;
+const CAPTURE_W = 2560;
+const CAPTURE_H = 2560;
 
 function focalLengthFromFov(fovDeg) {
-  // Projects onto the near-plane such that the horizontal FOV equals fovDeg.
-  // rd = normalize(uv.x*right + uv.y*up + focalLength*forward)
   return 1.0 / Math.tan((fovDeg * Math.PI / 180) / 2);
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
 function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
-  const mountRef    = useRef(null);
+  const mountRef = useRef(null);
   const uniformsRef = useRef(null);
 
-  // Refs read every rAF frame — always fresh, no stale-closure bugs
-  const fovRef       = useRef(fov);
+  const fovRef = useRef(fov);
   const dollyMultRef = useRef(dollyMult);
-  const prevDollyRef = useRef(dollyMult); // tracks what we applied last frame
+  const prevDollyRef = useRef(dollyMult);
 
   const initialPos = new THREE.Vector3(0, 0, BASE_RADIUS);
-  // useCameraControls exposes yaw + pitch so we can compute forward in fly mode
   const { modeRef, mode, pos, yaw, pitch, tickFly } = useCameraControls(initialPos);
 
-  // ── Sync prop → ref ───────────────────────────────────────────────────────
   useEffect(() => {
     fovRef.current = fov;
     if (uniformsRef.current) {
@@ -198,7 +226,6 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
     if (uniformsRef.current) uniformsRef.current.iColorScheme.value = colorScheme;
   }, [colorScheme]);
 
-  // ── Hi-res capture ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!captureRef) return;
     captureRef.current = () => {
@@ -227,22 +254,19 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
     };
   });
 
-  // ── Three.js setup (once) ─────────────────────────────────────────────────
   useEffect(() => {
-    const scene    = new THREE.Scene();
-    const camera   = new THREE.Camera();
+    const scene = new THREE.Scene();
+    const camera = new THREE.Camera();
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
     mountRef.current.appendChild(renderer.domElement);
 
     const geometry = new THREE.PlaneGeometry(2, 2);
 
-    // Orbit state (only used in orbit mode)
     let theta = Math.PI / 4;
     let phi   = 0;
 
     function getCameraPos() {
-      // Orbit radius = BASE_RADIUS × dollyMult so the slider moves the camera in orbit mode
       const r = BASE_RADIUS * dollyMultRef.current;
       return new THREE.Vector3(
         r * Math.sin(theta) * Math.cos(phi),
@@ -254,7 +278,7 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
     function getOrbitBasis(ro) {
       const forward = ro.clone().negate().normalize();
       const right   = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-      const up      = new THREE.Vector3().crossVectors(right, forward);
+      const up      = new THREE.Vector3().crossVectors(right, forward).normalize();
       return { forward, right, up };
     }
 
@@ -276,11 +300,10 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
     const material = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms });
     scene.add(new THREE.Mesh(geometry, material));
 
-    // Mouse orbit (orbit mode only)
     let isDragging = false, lastX = 0, lastY = 0;
     const onMouseDown = (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; };
-    const onMouseUp   = ()    => { isDragging = false; };
-    const onMouseMove = (e)   => {
+    const onMouseUp   = () => { isDragging = false; };
+    const onMouseMove = (e) => {
       if (!isDragging || modeRef.current !== "orbit") return;
       phi   -= (e.clientX - lastX) * 0.005;
       theta -= (e.clientY - lastY) * 0.005;
@@ -288,28 +311,19 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
       lastX = e.clientX; lastY = e.clientY;
     };
     renderer.domElement.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mouseup",   onMouseUp);
+    window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("mousemove", onMouseMove);
 
-    // Animation loop
     let animationId;
     function animate(time = 0) {
       animationId = requestAnimationFrame(animate);
       uniforms.iTime.value = time * 0.001;
 
-      // ── Dolly-zoom position adjustment ─────────────────────────────────
-      // Works in BOTH modes. In orbit mode the radius is baked into
-      // getCameraPos() via dollyMultRef, so we only need the explicit
-      // position correction in fly mode.
       const curDolly  = dollyMultRef.current;
       const prevDolly = prevDollyRef.current;
       const dollyDelta = Math.abs(curDolly - prevDolly);
 
       if (dollyDelta > 0.00005 && modeRef.current === "fly") {
-        // Scale the camera's distance from the origin by the dolly ratio.
-        // This keeps the fractal at the same angular position on screen
-        // (origin subtends the same angle from camera's perspective)
-        // regardless of where the camera is pointing.
         const len = pos.current.length();
         if (len > 0.001) {
           pos.current.multiplyScalar(curDolly / prevDolly);
@@ -317,7 +331,6 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
       }
       prevDollyRef.current = curDolly;
 
-      // ── Camera uniforms ────────────────────────────────────────────────
       if (modeRef.current === "fly") {
         const { forward, right, up } = tickFly();
         uniforms.iCameraPos.value.copy(pos.current);
@@ -340,7 +353,7 @@ function Mandelbulb({ colorScheme, captureRef, fov, dollyMult }) {
     return () => {
       cancelAnimationFrame(animationId);
       renderer.domElement.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("mouseup",   onMouseUp);
+      window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("mousemove", onMouseMove);
       renderer.dispose();
       if (mountRef.current?.contains(renderer.domElement)) {

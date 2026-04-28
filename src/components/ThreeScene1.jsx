@@ -5,7 +5,7 @@ import { useCameraControls } from "./useCameraControls";
 
 // ─── Color scheme gradients ───────────────────────────────────────────────────
 function lerp3(a, b, t) {
-  return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 }
 function gradient(stops, t) {
   const n = stops.length - 1;
@@ -14,57 +14,105 @@ function gradient(stops, t) {
 }
 
 const POINT_SCHEMES = [
-  (t) => gradient([[0,0.04,0.18],[0.1,0.4,0.9],[0.5,0.8,1.0]], t),
-  (t) => gradient([[0.12,0,0],[0.8,0.1,0],[1.0,0.6,0],[1.0,0.95,0.5]], t),
-  (t) => gradient([[0.1,0,0.22],[0.7,0,0.9],[0,0.7,1.0],[0.8,1.0,1.0]], t),
-  (t) => gradient([[0,0.08,0.1],[0,0.5,0.4],[0.1,0.9,0.6],[0.7,1.0,0.8]], t),
-  (t) => gradient([[0.05,0,0],[0.7,0.18,0],[1.0,0.58,0.1],[1.0,1.0,0.8]], t),
-  (t) => gradient([[0.05,0.1,0.2],[0.3,0.52,0.8],[0.72,0.87,1.0],[1.0,1.0,1.0]], t),
-  (t) => gradient([[0.04,0.1,0],[0.2,0.6,0],[0.6,1.0,0],[0.9,1.0,0.4]], t),
-  (t) => gradient([[0.05,0,0],[0.5,0,0.05],[0.9,0.05,0.1],[1.0,0.4,0.3]], t),
-  (t) => gradient([[0.1,0.05,0],[0.7,0.4,0],[1.0,0.82,0.3],[1.0,1.0,0.92]], t),
-  (t) => gradient([[0.02,0.02,0.02],[0.3,0.3,0.3],[0.72,0.72,0.72],[1.0,1.0,1.0]], t),
+  (t) => gradient([[0, 0.04, 0.18], [0.1, 0.4, 0.9], [0.5, 0.8, 1.0]], t),
+  (t) => gradient([[0.12, 0, 0], [0.8, 0.1, 0], [1.0, 0.6, 0], [1.0, 0.95, 0.5]], t),
+  (t) => gradient([[0.1, 0, 0.22], [0.7, 0, 0.9], [0, 0.7, 1.0], [0.8, 1.0, 1.0]], t),
+  (t) => gradient([[0, 0.08, 0.1], [0, 0.5, 0.4], [0.1, 0.9, 0.6], [0.7, 1.0, 0.8]], t),
+  (t) => gradient([[0.05, 0, 0], [0.7, 0.18, 0], [1.0, 0.58, 0.1], [1.0, 1.0, 0.8]], t),
+  (t) => gradient([[0.05, 0.1, 0.2], [0.3, 0.52, 0.8], [0.72, 0.87, 1.0], [1.0, 1.0, 1.0]], t),
+  (t) => gradient([[0.04, 0.1, 0], [0.2, 0.6, 0], [0.6, 1.0, 0], [0.9, 1.0, 0.4]], t),
+  (t) => gradient([[0.05, 0, 0], [0.5, 0, 0.05], [0.9, 0.05, 0.1], [1.0, 0.4, 0.3]], t),
+  (t) => gradient([[0.1, 0.05, 0], [0.7, 0.4, 0], [1.0, 0.82, 0.3], [1.0, 1.0, 0.92]], t),
+  (t) => gradient([[0.02, 0.02, 0.02], [0.3, 0.3, 0.3], [0.72, 0.72, 0.72], [1.0, 1.0, 1.0]], t),
 ];
 
 const GRID = 45;
 
 function computeDensity(positions) {
   const n = positions.length / 3;
-  let mn = [Infinity,Infinity,Infinity], mx = [-Infinity,-Infinity,-Infinity];
-  for (let i = 0; i < n; i++)
+  let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < n; i++) {
     for (let j = 0; j < 3; j++) {
-      const v = positions[i*3+j];
+      const v = positions[i * 3 + j];
       if (v < mn[j]) mn[j] = v;
       if (v > mx[j]) mx[j] = v;
     }
-  const range = [mx[0]-mn[0]+1e-6, mx[1]-mn[1]+1e-6, mx[2]-mn[2]+1e-6];
-  const grid  = new Int32Array(GRID*GRID*GRID);
+  }
+  const range = [mx[0] - mn[0] + 1e-6, mx[1] - mn[1] + 1e-6, mx[2] - mn[2] + 1e-6];
+  const grid = new Int32Array(GRID * GRID * GRID);
   const cellOf = (i) => {
-    const cx = Math.min(GRID-1, ((positions[i*3  ]-mn[0])/range[0]*GRID)|0);
-    const cy = Math.min(GRID-1, ((positions[i*3+1]-mn[1])/range[1]*GRID)|0);
-    const cz = Math.min(GRID-1, ((positions[i*3+2]-mn[2])/range[2]*GRID)|0);
-    return cx + cy*GRID + cz*GRID*GRID;
+    const cx = Math.min(GRID - 1, ((positions[i * 3] - mn[0]) / range[0] * GRID) | 0);
+    const cy = Math.min(GRID - 1, ((positions[i * 3 + 1] - mn[1]) / range[1] * GRID) | 0);
+    const cz = Math.min(GRID - 1, ((positions[i * 3 + 2] - mn[2]) / range[2] * GRID) | 0);
+    return cx + cy * GRID + cz * GRID * GRID;
   };
   for (let i = 0; i < n; i++) grid[cellOf(i)]++;
   let maxD = 0;
   for (const v of grid) if (v > maxD) maxD = v;
   const density = new Float32Array(n);
-  for (let i = 0; i < n; i++) density[i] = grid[cellOf(i)] / maxD;
+  for (let i = 0; i < n; i++) density[i] = grid[cellOf(i)] / Math.max(1, maxD);
   return density;
 }
 
 function applyColorScheme(schemeIdx, density, geometry) {
   if (!density || !geometry) return;
-  const n      = density.length;
+  const n = density.length;
   const colors = new Float32Array(n * 3);
   const scheme = POINT_SCHEMES[schemeIdx % POINT_SCHEMES.length];
   for (let i = 0; i < n; i++) {
-    const [r,g,b] = scheme(density[i]);
-    colors[i*3]=r; colors[i*3+1]=g; colors[i*3+2]=b;
+    const [r, g, b] = scheme(density[i]);
+    colors[i * 3] = r;
+    colors[i * 3 + 1] = g;
+    colors[i * 3 + 2] = b;
   }
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   geometry.attributes.color.needsUpdate = true;
 }
+
+const pointVertexShader = `
+attribute float aDensity;
+attribute vec3 color;
+varying vec3 vColor;
+varying float vDensity;
+
+uniform float uBaseSize;
+uniform vec2 uViewport;
+
+void main() {
+  vColor = color;
+  vDensity = aDensity;
+
+  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+
+  float sizeFactor = mix(0.85, 1.85, aDensity);
+  float distFactor = 1.0 / max(0.55, -mvPosition.z);
+  gl_PointSize = uBaseSize * sizeFactor * distFactor * (uViewport.y / 1080.0);
+
+  gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+const pointFragmentShader = `
+precision highp float;
+
+varying vec3 vColor;
+varying float vDensity;
+
+uniform float uOpacity;
+
+void main() {
+  vec2 p = gl_PointCoord - 0.5;
+  float r2 = dot(p, p);
+
+  float disc = smoothstep(0.30, 0.0, r2);
+  float glow = exp(-r2 * (14.0 - 5.0 * vDensity));
+
+  float alpha = uOpacity * mix(0.12, 0.62, vDensity) * (0.35 * disc + 0.85 * glow);
+  if (alpha < 0.003) discard;
+
+  gl_FragColor = vec4(vColor * alpha, alpha);
+}
+`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_DIST = 5.0;
@@ -73,20 +121,19 @@ const CAPTURE_H = 4096;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
-  const totalPointsRef   = useRef(0);
+  const totalPointsRef = useRef(0);
   const visiblePointsRef = useRef(0);
-  const buildingRef      = useRef(false);
-  const mountRef         = useRef(null);
-  const sceneRef         = useRef(null);
-  const rendererRef      = useRef(null);
-  const cameraRef        = useRef(null);
-  const pointsRef        = useRef(null);
-  const orbitRef         = useRef(null);
-  const densityRef       = useRef(null);
-  const colorSchemeRef   = useRef(colorScheme);
+  const buildingRef = useRef(false);
+  const mountRef = useRef(null);
+  const sceneRef = useRef(null);
+  const rendererRef = useRef(null);
+  const cameraRef = useRef(null);
+  const pointsRef = useRef(null);
+  const orbitRef = useRef(null);
+  const densityRef = useRef(null);
+  const colorSchemeRef = useRef(colorScheme);
 
-  // Per-frame refs — always current inside the rAF loop
-  const fovRef       = useRef(fov);
+  const fovRef = useRef(fov);
   const dollyMultRef = useRef(dollyMult);
   const prevDollyRef = useRef(dollyMult);
 
@@ -94,27 +141,24 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
     new THREE.Vector3(0, 0, BASE_DIST)
   );
 
-  // ── Sync refs ─────────────────────────────────────────────────────────────
   useEffect(() => { colorSchemeRef.current = colorScheme; }, [colorScheme]);
   useEffect(() => { fovRef.current = fov; }, [fov]);
   useEffect(() => { dollyMultRef.current = dollyMult; }, [dollyMult]);
 
-  // ── Re-apply colors without reloading geometry ────────────────────────────
   useEffect(() => {
     if (!pointsRef.current || !densityRef.current) return;
     applyColorScheme(colorScheme, densityRef.current, pointsRef.current.geometry);
   }, [colorScheme]);
 
-  // ── Capture at hi-res ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!captureRef) return;
     captureRef.current = () => {
       const renderer = rendererRef.current;
-      const camera   = cameraRef.current;
-      const scene    = sceneRef.current;
+      const camera = cameraRef.current;
+      const scene = sceneRef.current;
       if (!renderer || !camera || !scene) return null;
 
-      const origSize   = new THREE.Vector2();
+      const origSize = new THREE.Vector2();
       renderer.getSize(origSize);
       const origAspect = camera.aspect;
 
@@ -133,7 +177,6 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
     };
   });
 
-  // ── Scene / renderer setup ────────────────────────────────────────────────
   useEffect(() => {
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -141,14 +184,19 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
     const camera = new THREE.PerspectiveCamera(
       fovRef.current,
       mountRef.current.clientWidth / mountRef.current.clientHeight,
-      0.01,   // near — tiny so close-up fly mode works
-      5000    // far  — large enough for any dolly distance
+      0.01,
+      5000
     );
     camera.position.set(0, 0, BASE_DIST);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      preserveDrawingBuffer: true,
+      alpha: true,
+    });
     renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    renderer.setClearColor(0x000000, 1);
     rendererRef.current = renderer;
     mountRef.current.appendChild(renderer.domElement);
 
@@ -164,18 +212,12 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
     function animate() {
       animationId = requestAnimationFrame(animate);
 
-      // ── Live FOV ──────────────────────────────────────────────────────────
       if (Math.abs(camera.fov - fovRef.current) > 0.01) {
         camera.fov = fovRef.current;
         camera.updateProjectionMatrix();
       }
 
-      // ── Dolly-zoom: scale camera distance from origin ─────────────────────
-      // Applies in BOTH orbit and fly mode. We compare the current dollyMult
-      // against the last-applied value and scale the camera's distance from
-      // origin by the ratio. This keeps whatever the camera is pointing at
-      // at the same angular position on screen (classic Hitchcock zoom).
-      const curDolly  = dollyMultRef.current;
+      const curDolly = dollyMultRef.current;
       const prevDolly = prevDollyRef.current;
       const dollyDelta = Math.abs(curDolly - prevDolly);
 
@@ -183,13 +225,11 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
         const ratio = curDolly / prevDolly;
 
         if (modeRef.current === "fly") {
-          // Scale fly position from the origin
           const len = flyPos.current.length();
           if (len > 0.001) {
             flyPos.current.multiplyScalar(ratio);
           }
         } else {
-          // Scale orbit camera position; OrbitControls tracks the new distance
           camera.position.multiplyScalar(ratio);
           controls.update();
         }
@@ -197,7 +237,6 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
         prevDollyRef.current = curDolly;
       }
 
-      // ── Fly vs orbit ──────────────────────────────────────────────────────
       if (modeRef.current === "fly") {
         controls.enabled = false;
         const { forward } = tickFly();
@@ -208,16 +247,15 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
         controls.update();
       }
 
-      // ── Gradually reveal points ───────────────────────────────────────────
       if (buildingRef.current && pointsRef.current) {
-        visiblePointsRef.current += 500;
+        visiblePointsRef.current += 250;
         if (visiblePointsRef.current >= totalPointsRef.current) {
           visiblePointsRef.current = totalPointsRef.current;
-          buildingRef.current      = false;
+          buildingRef.current = false;
         }
         pointsRef.current.geometry.setDrawRange(0, visiblePointsRef.current);
-        const progress = visiblePointsRef.current / totalPointsRef.current;
-        pointsRef.current.material.opacity = 2**(-progress)
+        const progress = totalPointsRef.current > 0 ? visiblePointsRef.current / totalPointsRef.current : 1;
+        pointsRef.current.material.uniforms.uOpacity.value = 0.12 + progress * 0.26;
       }
 
       renderer.render(scene, camera);
@@ -231,7 +269,6 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
     };
   }, []);
 
-  // ── Rebuild geometry when fractal type changes ────────────────────────────
   useEffect(() => {
     if (sceneRef.current && type) updateGeometry(type);
   }, [type]);
@@ -242,14 +279,14 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
       sceneRef.current.remove(pointsRef.current);
       pointsRef.current.geometry.dispose();
       pointsRef.current.material.dispose();
-      pointsRef.current  = null;
+      pointsRef.current = null;
       densityRef.current = null;
     }
 
     const fractalFiles = {
-      Octahedron:   "/data/octahedron.bin",
+      Octahedron: "/data/octahedron.bin",
       Dodecahedron: "/data/dodecahedron.bin",
-      Tetrahedron:  "/data/tetrahedron.bin",
+      Tetrahedron: "/data/tetrahedron.bin",
     };
     const filePath = fractalFiles[fractalType];
     if (!filePath) return;
@@ -258,34 +295,58 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
       .then((r) => r.arrayBuffer())
       .then((buf) => {
         const positions = new Float32Array(buf);
-        const density   = computeDensity(positions);
+        const density = computeDensity(positions);
         densityRef.current = density;
 
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute("aDensity", new THREE.BufferAttribute(density, 1));
         geometry.setDrawRange(0, 0);
         applyColorScheme(colorSchemeRef.current, density, geometry);
 
-        const material = new THREE.PointsMaterial({
-          size: 0.001, vertexColors: true, transparent: true, opacity: 1.0,
+        const material = new THREE.ShaderMaterial({
+          vertexShader: pointVertexShader,
+          fragmentShader: pointFragmentShader,
+          uniforms: {
+            uBaseSize: { value: 20.0 },
+            uViewport: {
+              value: new THREE.Vector2(
+                mountRef.current.clientWidth,
+                mountRef.current.clientHeight,
+              ),
+            },
+            uOpacity: { value: 0.12 },
+          },
+          transparent: true,
+          depthWrite: false,
+          depthTest: true,
+          blending: THREE.AdditiveBlending,
+          vertexColors: true,
         });
 
         const points = new THREE.Points(geometry, material);
         sceneRef.current.add(points);
-        pointsRef.current        = points;
-        totalPointsRef.current   = positions.length / 3;
+        pointsRef.current = points;
+        totalPointsRef.current = positions.length / 3;
         visiblePointsRef.current = 0;
-        buildingRef.current      = true;
+        buildingRef.current = true;
       });
   }
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={mountRef} style={{ width: "100%", height: "100%" }} />
-      <div style={{
-        position: "absolute", top: 8, left: 8,
-        color: "white", fontSize: 12, opacity: 0.6, pointerEvents: "none",
-      }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          left: 8,
+          color: "white",
+          fontSize: 12,
+          opacity: 0.6,
+          pointerEvents: "none",
+        }}
+      >
         {mode === "fly" ? "FLY  [WASD / mouse / []]" : "ORBIT  [drag]"}  · F / O to switch
       </div>
     </div>

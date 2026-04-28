@@ -22,6 +22,7 @@ export function useCameraControls(initialPos) {
 
       if (k === "f") {
         modeRef.current = "fly";
+        speed.current *= 0.5; // ↓ reduce default speed by 2×
         setMode("fly");
         // Grab the mouse — keydown counts as a user gesture in all major browsers
         document.body.requestPointerLock();
@@ -44,7 +45,7 @@ export function useCameraControls(initialPos) {
       if (!document.pointerLockElement) return;
       if (modeRef.current !== "fly") return;
 
-      const sensitivity = 0.0018;
+      const sensitivity = 0.0009;
       yaw.current   -= e.movementX * sensitivity;
       pitch.current -= e.movementY * sensitivity;
       pitch.current = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, pitch.current));
