@@ -2,10 +2,11 @@ import Controls from "./components/Controls";
 import React, { useState } from "react";
 import FractalCanvas from "./components/FractalCanvas";
 
-import SeirpinskiIMG from "./assets/SierpinskiTriangle.jpg";
+import SierpinskiIMG from "./assets/SierpinskiTriangle.jpg";
 import RomanescoIMG from "./assets/RomanescoIMG.jpg";
 import BloodIMG from "./assets/BloodVessels.jpg";
 import CoastlineIMG from "./assets/Coastline.jpg";
+import SierpinskiGIF from "./assets/Sierpinski_chaos_animated.gif";
 
 const h1Style = {
   fontFamily: "'Courier New', Courier, monospace",
@@ -60,7 +61,7 @@ function Article() {
         <p style={pStyle}>
           A fractal is a geometric shape that is infinitely detailed as you zoom in. As you take a closer look at these shapes, you often find the same patterns recurring within the larger shape.
         </p>
-        <img src={SeirpinskiIMG} alt="Seirpinski Triangle" style={imgStyle} />
+        <img src={SierpinskiIMG} alt="Sierpinski Triangle" style={imgStyle} />
         <p style={pStyle}>
           For example, in the Sierpiński triangle without zooming in, the general shape is an equilateral triangle with smaller triangles removed. As we zoom in further, we see that these removed triangles become infinitely smaller, and we see some of the same patterns appearing.
         </p>
@@ -69,6 +70,7 @@ function Article() {
         <p style={pStyle}>
           The chaos game is a way of plotting our certain fractals, particularly the Sierpiński triangle. To begin, you plot out the three corners of a triangle. Then, you plot a random point inside of the triangle. After this, you can use any of the three corners and plot a point halfway between the random middle point and the selected corner. You then pick another random corner and use the newly plotted point to do the same thing. While the process may sound convoluted, after enough iterations, you will see the Sierpiński triangle appear.
         </p>
+        <img src={SierpinskiGIF} alt="Animated Sierpinski Triangle GIF" style={imgStyle} />
 
         <h2 style={h2Style}>Practical Uses of Fractals</h2>
         <p style={pStyle}>
