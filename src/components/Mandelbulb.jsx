@@ -17,6 +17,21 @@ uniform vec3 iCameraPos;
 uniform vec3 iForward;
 uniform vec3 iRight;
 uniform vec3 iUp;
+uniform float iHue;
+
+vec3 hsl2rgb(float h, float s, float l) {
+    float c = (1.0 - abs(2.0 * l - 1.0)) * s;
+    float x = c * (1.0 - abs(mod(h * 6.0, 2.0) - 1.0));
+    float m = l - c * 0.5;
+    vec3 rgb;
+    if      (h < 1.0/6.0) rgb = vec3(c, x, 0.0);
+    else if (h < 2.0/6.0) rgb = vec3(x, c, 0.0);
+    else if (h < 3.0/6.0) rgb = vec3(0.0, c, x);
+    else if (h < 4.0/6.0) rgb = vec3(0.0, x, c);
+    else if (h < 5.0/6.0) rgb = vec3(x, 0.0, c);
+    else                   rgb = vec3(c, 0.0, x);
+    return rgb + m;
+}
 
 float mandelbulbDE(vec3 pos) {
     vec3 z = pos;
@@ -109,9 +124,10 @@ void main() {
         float ambient = 0.12;
 
         // Per-light tinting gives the shape more colour richness
-        vec3 baseColor = vec3(0.2,  0.6,  1.0);  // cool blue — key
-        vec3 fillColor = vec3(0.3,  0.5,  0.8);  // softer blue — fill
-        vec3 rimColor  = vec3(0.95, 0.4,  0.15); // warm orange — rim
+        float h = mod(iHue, 1.0);
+        vec3 baseColor = hsl2rgb(h,                   0.8, 0.65);
+        vec3 fillColor = hsl2rgb(mod(h + 0.08, 1.0),  0.6, 0.55);
+        vec3 rimColor  = hsl2rgb(mod(h + 0.5,  1.0),  0.9, 0.55);
 
         vec3 color = baseColor * (keyDiff + ambient)
                    + fillColor * fillDiff
@@ -125,8 +141,9 @@ void main() {
 }
 `;
 
-function Mandelbulb() {
+function Mandelbulb({ hue = 200 }) {
   const mountRef = useRef(null);
+  const uniformsRef = useRef(null);
   const initialPos = new THREE.Vector3(0, 0, 8);
   const { modeRef, mode, pos, tickFly } = useCameraControls(initialPos);
 
@@ -181,7 +198,9 @@ function Mandelbulb() {
       iForward: { value: initBasis.forward },
       iRight: { value: initBasis.right },
       iUp: { value: initBasis.up },
+      iHue: { value: 0.0 },
     };
+    uniformsRef.current = uniforms;
 
     const material = new THREE.ShaderMaterial({
       vertexShader,
@@ -268,6 +287,12 @@ function Mandelbulb() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (uniformsRef.current) {
+      uniformsRef.current.iHue.value = hue / 360;
+    }
+  }, [hue]);
 
 return (
   <div style={{ position: "relative", width: "100%", height: "100%" }}>

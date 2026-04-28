@@ -11,7 +11,7 @@ const btnStyle = {
   cursor: "pointer",
 };
 
-function Controls({ setFractalType }) {
+function Controls({ setFractalType, hue, setHue }) {
   return (
     <div style={{
       width: "200px",
@@ -29,7 +29,7 @@ function Controls({ setFractalType }) {
         paddingBottom: "8px",
         marginBottom: "12px",
       }}>
-        Fractal Type
+        Chaos Game Fractals
       </div>
 
       <button style={btnStyle} onClick={() => setFractalType("Octahedron")}>
@@ -44,9 +44,98 @@ function Controls({ setFractalType }) {
         Tetrahedron
       </button>
 
-      <button style={btnStyle} onClick={() => setFractalType("Mandelbulb")}>
-        Mandelbulb
-      </button>
+      <div style={{
+        marginTop: "20px",
+        paddingTop: "14px",
+        borderTop: "1px solid var(--border)",
+      }}>
+        <div style={{
+          fontSize: "11px",
+          color: "var(--text-dim)",
+          letterSpacing: "2px",
+          textTransform: "uppercase",
+          marginBottom: "12px",
+        }}>
+          3D Fractals
+        </div>
+
+        <button style={btnStyle} onClick={() => setFractalType("Mandelbulb")}>
+          Mandelbulb
+        </button>
+      </div>
+
+      <div style={{
+        marginTop: "20px",
+        paddingTop: "14px",
+        borderTop: "1px solid var(--border)",
+      }}>
+        <div style={{
+          fontSize: "11px",
+          color: "var(--text-dim)",
+          letterSpacing: "2px",
+          textTransform: "uppercase",
+          marginBottom: "12px",
+        }}>
+          Landscape Fractals
+        </div>
+
+        <button style={btnStyle} onClick={() => setFractalType("KochCoastline")}>
+          Koch Coastline
+        </button>
+
+        <button style={btnStyle} onClick={() => setFractalType("KochVisualization")}>
+          Koch Visualization
+        </button>
+
+        <button style={btnStyle} onClick={() => setFractalType("LichtenbergLightning")}>
+          Lichtenberg Lightning
+        </button>
+      </div>
+
+      <div style={{
+        marginTop: "20px",
+        paddingTop: "14px",
+        borderTop: "1px solid var(--border)",
+      }}>
+        <div style={{
+          fontSize: "11px",
+          color: "var(--text-dim)",
+          letterSpacing: "2px",
+          textTransform: "uppercase",
+          marginBottom: "12px",
+        }}>
+          Customizations
+        </div>
+
+        <div style={{
+          fontSize: "11px",
+          color: "var(--text)",
+          letterSpacing: "1px",
+          marginBottom: "8px",
+        }}>
+          Color
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <input
+            type="range"
+            min="60"
+            max="360"
+            value={hue}
+            onChange={e => setHue(Number(e.target.value))}
+            className="hue-slider"
+            style={{ flex: 1 }}
+          />
+          <div style={{
+            width: "18px",
+            height: "18px",
+            borderRadius: "50%",
+            backgroundColor: `hsl(${hue}, 100%, 50%)`,
+            border: "1px solid var(--border)",
+            flexShrink: 0,
+          }} />
+        </div>
+      </div>
     </div>
   );
 }

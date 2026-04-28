@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { useCameraControls } from "./useCameraControls";
 
-function ThreeScene({ type }) {
+function ThreeScene({ type, hue = 200 }) {
   const totalPointsRef = useRef(0);
   const visiblePointsRef = useRef(0);
   const buildingRef = useRef(false);
@@ -98,6 +98,12 @@ function ThreeScene({ type }) {
     updateGeometry(type);
     }
   }, [type]);
+
+  useEffect(() => {
+    if (pointsRef.current) {
+      pointsRef.current.material.color.setHSL(hue / 360, 1.0, 0.6);
+    }
+  }, [hue]);
 
   // 🔹 3. Geometry Update Function
   function updateGeometry(type) {

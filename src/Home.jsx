@@ -4,11 +4,12 @@ import FractalCanvas from "./components/FractalCanvas";
 
 function Home() {
   const [fractalType, setFractalType] = useState("Octahedron");
+  const [hue, setHue] = useState(200);
 
   return (
     <div style={{ display: "flex", height: "100vh"}}>
-      <FractalCanvas type={fractalType} />
-      <Controls setFractalType={setFractalType} />
+      <FractalCanvas type={fractalType} hue={hue} />
+      <Controls setFractalType={setFractalType} hue={hue} setHue={setHue} />
     </div>
   );
 }

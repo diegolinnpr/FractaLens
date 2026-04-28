@@ -1,8 +1,11 @@
 import React from "react";
 import ThreeScene from "./ThreeScene";
 import Mandelbulb from "./Mandelbulb";
+import KochCoastline from "./KochCoastline";
+import KochVisualization from "./KochVisualization";
+import LichtenbergLightning from "./LichtenbergLightning";
 
-function FractalCanvas({ type }) {
+function FractalCanvas({ type, hue }) {
   return (
     <div style={{
       flex: 1,
@@ -13,7 +16,13 @@ function FractalCanvas({ type }) {
       height: "100%",
     }}>
       {type === "Mandelbulb" ? (
-        <Mandelbulb />
+        <Mandelbulb hue={hue} />
+      ) : type === "KochCoastline" ? (
+        <KochCoastline hue={hue} />
+      ) : type === "KochVisualization" ? (
+        <KochVisualization hue={hue} />
+      ) : type === "LichtenbergLightning" ? (
+        <LichtenbergLightning hue={hue} />
       ) : (
         <>
           <div style={{
@@ -28,7 +37,7 @@ function FractalCanvas({ type }) {
             &gt; {type} Fractal Here
           </div>
           <div style={{ flex: 1 }}>
-            <ThreeScene type={type} />
+            <ThreeScene type={type} hue={hue} />
           </div>
         </>
       )}
