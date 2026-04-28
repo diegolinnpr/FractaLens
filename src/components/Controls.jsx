@@ -70,7 +70,7 @@ const btnStyle = {
 const activeBtnStyle = {
   ...btnStyle,
   backgroundColor: "var(--border)",
-  borderColor: "var(--text)",
+  border: "1px solid var(--text)",
 };
 
 const downloadBtnStyle = {

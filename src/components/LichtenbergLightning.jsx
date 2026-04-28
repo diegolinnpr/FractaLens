@@ -1,319 +1,454 @@
 import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass";
 
-// ── Simulation constants ──────────────────────────────────────────────────────
-const GRID           = 100;  // NxN potential grid
-const ETA            = 2.0;  // DBM growth exponent — higher = more branchy/lightning-like
-const N_RELAX        = 20;   // SOR Laplace iterations per animation frame
-const SOR_W          = 1.85; // over-relaxation parameter (optimal ≈ 2/(1+π/N))
-const GROW_PER_FRAME = 3;    // discharge cells added per frame
+// ─── Scene constants ──────────────────────────────────────────────────────────
+const CLOUD_Y        = 11;
+const GROUND_Y       = -14;
+const MAX_TIPS       = 80;     // cap active tips so branching can't explode
+const MAX_BRANCH_D   = 4;      // deepest branch level
+const STEP_DECAY     = 0.93;   // step-size multiplier per branch depth level
 
-const at = (x, y) => y * GRID + x;
+// ─── Geometry helpers ─────────────────────────────────────────────────────────
+const _UP   = new THREE.Vector3(0, 1, 0);
+const _SIDE = new THREE.Vector3(1, 0, 0);
+const _DOWN = new THREE.Vector3(0, -1, 0);
 
-// ── SOR Laplace relaxation step ───────────────────────────────────────────────
-// Solves ∇²φ = 0 with φ=1 on discharge, φ=0 on ground, Neumann on sides.
-function sorStep(phi, disc) {
-  for (let y = 1; y < GRID - 1; y++) {
-    for (let x = 0; x < GRID; x++) {
-      const i = at(x, y);
-      if (disc[i]) continue;
-      const l = x > 0      ? phi[at(x - 1, y)] : phi[i]; // Neumann left
-      const r = x < GRID-1 ? phi[at(x + 1, y)] : phi[i]; // Neumann right
-      phi[i] += SOR_W * ((phi[at(x, y-1)] + phi[at(x, y+1)] + l + r) * 0.25 - phi[i]);
-    }
+function makeSegMesh(start, end, depth, hue, scene) {
+  const dir = new THREE.Vector3().subVectors(end, start);
+  const len = dir.length();
+  if (len < 0.01) return null;
+
+  // Thickness decreases with each branch level — self-similar but visibly thinner
+  const radii = [0.14, 0.088, 0.056, 0.034, 0.020];
+  const r = radii[Math.min(depth, radii.length - 1)];
+
+  // Trunk = near-white; branches drop in both brightness and opacity so
+  // the hierarchy reads clearly — deeper branches are visibly dimmer.
+  const h   = hue / 360;
+  const col = new THREE.Color().setHSL(
+    h,
+    depth === 0 ? 0.15 : 0.50 + depth * 0.10,
+    depth === 0 ? 0.88 : Math.max(0.38, 0.78 - depth * 0.13),
+  );
+  const opacity = [0.78, 0.58, 0.42, 0.28, 0.18][Math.min(depth, 4)];
+
+  const geo  = new THREE.CylinderGeometry(r, r, len, 5, 1);
+  const mat  = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity });
+  const mesh = new THREE.Mesh(geo, mat);
+
+  // Position at midpoint, orient along segment direction
+  mesh.position.copy(start).add(end).multiplyScalar(0.5);
+  const dirN = dir.divideScalar(len);
+  if (dirN.dot(_UP) < -0.9999) {
+    mesh.quaternion.setFromAxisAngle(_SIDE, Math.PI);
+  } else {
+    mesh.quaternion.setFromUnitVectors(_UP, dirN);
   }
+  scene.add(mesh);
+  return mesh;
 }
 
-// ── Create fresh simulation state ─────────────────────────────────────────────
-function createSim() {
-  const N    = GRID * GRID;
-  const phi  = new Float32Array(N);
-  const disc = new Uint8Array(N);
-  const par  = new Int32Array(N).fill(-1);
-  // Sub-pixel jitter per cell for organic branch appearance
-  const jit  = Float32Array.from({ length: N * 2 }, () => (Math.random() - 0.5) * 0.45);
+// ─── Growth direction helpers ─────────────────────────────────────────────────
 
-  // Linear initial potential: 1 at top (cloud), 0 at bottom (ground)
-  for (let y = 0; y < GRID; y++)
-    for (let x = 0; x < GRID; x++)
-      phi[at(x, y)] = (GRID - 1 - y) / (GRID - 1);
-  for (let x = 0; x < GRID; x++) phi[at(x, GRID - 1)] = 0;
+// Each growth step: blend the tip's current direction toward straight-down, then
+// add a perpendicular random kick whose magnitude is proportional to step size.
+// The proportionality is constant across all branch depths — that is the property
+// that makes the structure self-similar (scale-invariant roughness coefficient).
+function computeStep(tipDir, depth) {
+  const stepLen = 0.88 * Math.pow(STEP_DECAY, depth);
 
-  // Seed: single point at top centre
-  const sx = Math.floor(GRID / 2), sy = 0;
-  disc[at(sx, sy)] = 1;
-  phi[at(sx, sy)]  = 1;
+  // Gentle pull toward straight-down — low enough that horizontal wandering
+  // is common, giving the wide spread the Lichtenberg pattern needs.
+  const d = tipDir.clone().lerp(_DOWN, 0.10).normalize();
 
-  // Candidate map: cell index → parent discharge cell
-  // Growth allowed left, right, down — no upward to keep it lightning-like
-  const cands = new Map();
-  for (const [dx, dy] of [[-1, 0], [1, 0], [0, 1]]) {
-    const nx = sx + dx, ny = sy + dy;
-    if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID)
-      cands.set(at(nx, ny), at(sx, sy));
-  }
+  // Perpendicular jitter — same relative coefficient at every depth (self-similar).
+  // Larger value = more jagged zigzag at every scale.
+  const ref = Math.abs(d.y) > 0.9 ? _SIDE.clone() : _UP.clone();
+  const p1  = new THREE.Vector3().crossVectors(d, ref).normalize();
+  const p2  = new THREE.Vector3().crossVectors(d, p1).normalize();
+  d.addScaledVector(p1, (Math.random() - 0.5) * 2 * 1.05);
+  d.addScaledVector(p2, (Math.random() - 0.5) * 2 * 1.05);
 
-  // Warm up the potential field before first growth step
-  for (let i = 0; i < 150; i++) sorStep(phi, disc);
+  // Soft floor only — allow near-horizontal travel, just never upward
+  if (d.y > 0.05) d.y = 0.05 - Math.random() * 0.12;
+  d.normalize();
 
-  return { phi, disc, par, jit, cands, cells: 1, list: [at(sx, sy)], returnPath: null };
+  return d.multiplyScalar(stepLen);
 }
 
-// ── Grow one discharge cell using DBM probability ─────────────────────────────
-function growOne(sim) {
-  const { phi, disc, par, cands, list } = sim;
-  if (!cands.size) return "stuck";
-
-  // P(cell) ∝ φ(cell)^η — cells with stronger field gradient are chosen more often
-  const entries = [...cands.entries()];
-  let total = 0;
-  const w = entries.map(([ci]) => {
-    const v = Math.pow(Math.max(0, phi[ci]), ETA);
-    total += v;
-    return v;
-  });
-  if (total === 0) return "stuck";
-
-  let r = Math.random() * total;
-  let chosen = entries[0][0], chosenPar = entries[0][1];
-  for (let i = 0; i < entries.length; i++) {
-    r -= w[i];
-    if (r <= 0) { [chosen, chosenPar] = entries[i]; break; }
-  }
-
-  // Commit new cell
-  disc[chosen] = 1;
-  phi[chosen]  = 1;
-  par[chosen]  = chosenPar;
-  cands.delete(chosen);
-  list.push(chosen);
-  sim.cells++;
-
-  // Expand candidate frontier (no upward growth)
-  const cx = chosen % GRID, cy = Math.floor(chosen / GRID);
-  for (const [dx, dy] of [[-1, 0], [1, 0], [0, 1]]) {
-    const nx = cx + dx, ny = cy + dy;
-    if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) continue;
-    const ni = at(nx, ny);
-    if (!disc[ni] && !cands.has(ni)) cands.set(ni, chosen);
-  }
-
-  // Ground reached → trace return path (ground → source for flash animation)
-  if (cy === GRID - 1) {
-    const path = [chosen];
-    let c = chosen;
-    while (par[c] >= 0) { c = par[c]; path.push(c); }
-    sim.returnPath = path;
-    return "hit";
-  }
-
-  return "ok";
+// Branch direction: rotate parent direction 45–95° around a random horizontal axis.
+// Large angles ensure visually divergent pathways.
+function makeBranchDir(parentDir) {
+  // 65–130° split from parent — forces wide spatial separation between pathways
+  const angle = THREE.MathUtils.degToRad(65 + Math.random() * 65);
+  const axis  = new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5);
+  if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0);
+  axis.normalize();
+  const d = parentDir.clone().applyQuaternion(
+    new THREE.Quaternion().setFromAxisAngle(axis, angle),
+  );
+  // Only a very soft downward nudge — branches are allowed to go sideways
+  if (d.y > 0.20) d.y = 0.20 - Math.random() * 0.25;
+  return d.normalize();
 }
 
-// ── Render one frame ──────────────────────────────────────────────────────────
-function renderFrame(canvas, sim, hue, phase, phaseT) {
-  const cw = canvas.width, ch = canvas.height;
-  const cellW = cw / GRID, cellH = ch / GRID;
-  const ctx = canvas.getContext("2d");
-  const { disc, par, jit, list, returnPath } = sim;
-
-  // Clear to background
-  ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = "#0c0a06";
-  ctx.fillRect(0, 0, cw, ch);
-
-  const fadeAlpha = phase === "fade" ? Math.max(0, 1 - phaseT) : 1;
-  if (fadeAlpha === 0) return;
-
-  // Map cell index to canvas coordinate (with jitter)
-  const cx = i => (i % GRID + 0.5 + jit[i * 2])     * cellW;
-  const cy = i => (Math.floor(i / GRID) + 0.5 + jit[i * 2 + 1]) * cellH;
-
-  // Build branch path once
-  function strokeBranches() {
-    ctx.beginPath();
-    for (const i of list) {
-      if (par[i] < 0) continue;
-      ctx.moveTo(cx(i), cy(i));
-      ctx.lineTo(cx(par[i]), cy(par[i]));
-    }
-    ctx.stroke();
+// ─── Cloud ────────────────────────────────────────────────────────────────────
+function buildCloud(scene) {
+  const group = new THREE.Group();
+  const blobs = [
+    [0, 14, 0, 5.5], [-5, 13, 1.5, 3.8], [5, 13.5, -2, 3.8],
+    [-2, 16, -2.5, 3], [3.5, 16.5, 2, 2.8],
+    [-6, 12, -2.5, 2.3], [6, 12.5, 1.5, 2.3],
+  ];
+  for (const [x, y, z, r] of blobs) {
+    const mat  = new THREE.MeshStandardMaterial({
+      color: 0x2a3555, roughness: 1, metalness: 0,
+      emissive: new THREE.Color(0.05, 0.07, 0.16), emissiveIntensity: 1,
+    });
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 11, 9), mat);
+    mesh.position.set(x, y, z);
+    group.add(mesh);
   }
-
-  // Additive blending gives bright intersections where branches overlap
-  ctx.globalCompositeOperation = "lighter";
-  ctx.lineCap  = "round";
-  ctx.lineJoin = "round";
-
-  // Three glow passes: wide dim → mid → bright core
-  ctx.lineWidth   = 7;
-  ctx.strokeStyle = `hsla(${hue}, 100%, 70%, ${0.04 * fadeAlpha})`;
-  strokeBranches();
-
-  ctx.lineWidth   = 3;
-  ctx.strokeStyle = `hsla(${hue}, 100%, 80%, ${0.18 * fadeAlpha})`;
-  strokeBranches();
-
-  ctx.lineWidth   = 1;
-  ctx.strokeStyle = `hsla(${hue}, 80%, 98%, ${0.65 * fadeAlpha})`;
-  strokeBranches();
-
-  // Return-stroke flash: bright white pulse that fades out along the main channel
-  if (returnPath && phase === "flash") {
-    const bright = 1 - phaseT;
-    for (const [lw, a] of [[9, 0.12], [4, 0.4], [1.5, 1.0]]) {
-      ctx.lineWidth   = lw;
-      ctx.strokeStyle = `rgba(190, 220, 255, ${a * bright})`;
-      ctx.beginPath();
-      for (let i = 0; i < returnPath.length - 1; i++) {
-        ctx.moveTo(cx(returnPath[i]),     cy(returnPath[i]));
-        ctx.lineTo(cx(returnPath[i + 1]), cy(returnPath[i + 1]));
-      }
-      ctx.stroke();
-    }
-  }
-
-  ctx.globalCompositeOperation = "source-over";
+  scene.add(group);
+  return group;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function LichtenbergLightning({ hue = 200 }) {
-  const canvasRef  = useRef(null);
-  const simRef     = useRef(null);
-  const animRef    = useRef(null);
-  const phaseRef   = useRef("growing");
-  const t0Ref      = useRef(0);
-  const pausedRef  = useRef(false);
-  const hueRef     = useRef(hue);
+  const mountRef = useRef(null);
+  const hueRef   = useRef(hue);
 
-  const [uiPhase, setUiPhase] = useState("growing");
-  const [cells,   setCells]   = useState(1);
-  const [paused,  setPaused]  = useState(false);
+  // User-controlled — React state drives the UI; refs feed the animation loop
+  const [stepsPerSec, setStepsPerSec] = useState(3);
+  const [branchProb,  setBranchProb]  = useState(0.25);
+  const [phaseLabel,  setPhaseLabel]  = useState("idle");
+  const stepsRef    = useRef(3);
+  const branchRef   = useRef(0.25);
+  const triggerRef  = useRef(null);
 
-  useEffect(() => { hueRef.current = hue; }, [hue]);
+  useEffect(() => { hueRef.current  = hue;          }, [hue]);
+  useEffect(() => { stepsRef.current = stepsPerSec; }, [stepsPerSec]);
+  useEffect(() => { branchRef.current = branchProb; }, [branchProb]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    canvas.width  = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    const mount = mountRef.current;
+    const W = mount.clientWidth, H = mount.clientHeight;
 
-    simRef.current  = createSim();
-    phaseRef.current = "growing";
-    t0Ref.current    = 0;
+    // ── Renderer ──────────────────────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(W, H);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    mount.appendChild(renderer.domElement);
 
-    function loop(ts) {
-      animRef.current = requestAnimationFrame(loop);
-      const sim   = simRef.current;
-      const phase = phaseRef.current;
+    // ── Scene ─────────────────────────────────────────────────────────────────
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d1830);
+    scene.fog = new THREE.FogExp2(0x0d1830, 0.009);
 
-      if (phase === "growing" && !pausedRef.current) {
-        // Relax the potential field, then add cells
-        for (let k = 0; k < N_RELAX; k++) sorStep(sim.phi, sim.disc);
-        for (let k = 0; k < GROW_PER_FRAME; k++) {
-          const res = growOne(sim);
-          if (res === "hit" || res === "stuck") {
-            phaseRef.current = "flash";
-            t0Ref.current    = ts;
-            setUiPhase("flash");
-            break;
-          }
+    const camera = new THREE.PerspectiveCamera(52, W / H, 0.1, 400);
+    camera.position.set(22, 4, 22);
+    camera.lookAt(0, 0, 0);
+
+    // ── Post-processing ───────────────────────────────────────────────────────
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.6, 0.20);
+    composer.addPass(bloom);
+
+    // ── Controls ──────────────────────────────────────────────────────────────
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, 0);
+    controls.minDistance = 8;
+    controls.maxDistance = 90;
+    controls.enableDamping = true;
+
+    // ── Lighting ──────────────────────────────────────────────────────────────
+    scene.add(new THREE.AmbientLight(0x2a3d60, 2.2));
+    const key = new THREE.DirectionalLight(0x5070b0, 1.4);
+    key.position.set(-15, 30, 10);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0x203050, 0.6);
+    fill.position.set(12, 10, -10);
+    scene.add(fill);
+    scene.add(new THREE.HemisphereLight(0x0d1830, 0x1a2440, 0.5));
+
+    // ── Ground ────────────────────────────────────────────────────────────────
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(120, 120),
+      new THREE.MeshStandardMaterial({ color: 0x111a28, roughness: 0.92 }),
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = GROUND_Y;
+    scene.add(ground);
+
+    // ── Cloud ─────────────────────────────────────────────────────────────────
+    const cloudGroup = buildCloud(scene);
+
+    function pulseCloud(t) {
+      cloudGroup.traverse(o => {
+        if (o.isMesh && o.material.emissive) {
+          o.material.emissive.setRGB(0.05 + 0.6 * t, 0.07 + 0.6 * t, 0.16 + 0.5 * t);
         }
-        setCells(sim.cells);
+      });
+    }
 
-      } else if (phase === "flash") {
-        if (ts - t0Ref.current >= 500) {
-          phaseRef.current = "fade";
-          t0Ref.current    = ts;
-          setUiPhase("fade");
+    // ── Growth state ──────────────────────────────────────────────────────────
+    // tip   = { pos: V3, parentSeg: seg|null, depth: int, dir: V3 }
+    // seg   = { start: V3, end: V3, parentSeg: seg|null, depth: int, mesh: Mesh }
+    let front        = [];
+    let allSegs      = [];
+    let strikePhase  = "idle";
+    let phaseT0      = performance.now();
+    let accumTime    = 0;
+    let lastTs       = performance.now();
+
+    function clearAll() {
+      for (const s of allSegs) {
+        if (s.mesh) {
+          scene.remove(s.mesh);
+          s.mesh.geometry.dispose();
+          s.mesh.material.dispose();
         }
-      } else if (phase === "fade") {
-        if (ts - t0Ref.current >= 700) {
-          phaseRef.current = "done";
-          t0Ref.current    = ts;
-          setUiPhase("done");
+      }
+      allSegs = [];
+      front   = [];
+    }
+
+    function startGrowth() {
+      clearAll();
+      const sx = (Math.random() - 0.5) * 3;
+      const sz = (Math.random() - 0.5) * 3;
+      front = [{
+        pos: new THREE.Vector3(sx, CLOUD_Y, sz),
+        parentSeg: null,
+        depth: 0,
+        dir: new THREE.Vector3(0, -1, 0),
+      }];
+      bloom.strength = 0.7;
+      strikePhase = "growing";
+      phaseT0     = performance.now();
+      accumTime   = 0;
+      setPhaseLabel("growing");
+    }
+
+    // One discrete growth step — advances every active tip by one segment.
+    // The Lichtenberg fractal property lives here: each tip's step direction is
+    // computed with the same perpendicular roughness coefficient regardless of
+    // depth, giving scale-invariant self-similar structure. Branches are seeded
+    // at the tip position with a large angular offset so pathways genuinely
+    // diverge rather than cluster around the trunk.
+    function doStep() {
+      if (strikePhase !== "growing" || front.length === 0) return;
+
+      const newFront = [];
+      let winner = null;
+
+      for (const tip of front) {
+        const step   = computeStep(tip.dir, tip.depth);
+        const newPos = tip.pos.clone().add(step);
+
+        // Create and register segment
+        const seg = {
+          start: tip.pos.clone(),
+          end:   newPos.clone(),
+          parentSeg: tip.parentSeg,
+          depth:     tip.depth,
+          mesh:      makeSegMesh(tip.pos, newPos, tip.depth, hueRef.current, scene),
+        };
+        allSegs.push(seg);
+
+        if (newPos.y <= GROUND_Y) {
+          if (!winner) winner = seg;
+          continue; // this tip is done
         }
-      } else if (phase === "done" && !pausedRef.current) {
-        if (ts - t0Ref.current >= 600) {
-          simRef.current   = createSim();
-          phaseRef.current = "growing";
-          t0Ref.current    = ts;
-          setUiPhase("growing");
-          setCells(1);
+
+        const newDir = step.clone().normalize();
+
+        // Continue tip
+        newFront.push({ pos: newPos, parentSeg: seg, depth: tip.depth, dir: newDir });
+
+        // Possibly spawn a branch — capped by max tips and max depth
+        if (
+          tip.depth < MAX_BRANCH_D &&
+          newFront.length + front.length < MAX_TIPS &&
+          Math.random() < branchRef.current
+        ) {
+          newFront.push({
+            pos:       newPos,
+            parentSeg: seg,
+            depth:     tip.depth + 1,
+            dir:       makeBranchDir(newDir),
+          });
         }
       }
 
-      const phaseDur = phase === "flash" ? 500 : 700;
-      const phaseT   = Math.min(1, (ts - t0Ref.current) / phaseDur);
-      renderFrame(canvas, simRef.current, hueRef.current, phaseRef.current, phaseT);
+      front = newFront;
+
+      if (winner) {
+        announceWinner(winner);
+      } else if (front.length === 0) {
+        // Rare: all tips died above ground — restart
+        strikePhase = "pausing";
+        phaseT0     = performance.now();
+      }
     }
 
-    animRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animRef.current);
+    // Trace the winning path (winner → root via parentSeg pointers).
+    // Brighten those segments, hide all others, then start the hold phase.
+    function announceWinner(winSeg) {
+      const winPath = new Set();
+      let cur = winSeg;
+      while (cur) { winPath.add(cur); cur = cur.parentSeg; }
+
+      for (const s of allSegs) {
+        if (!s.mesh) continue;
+        if (winPath.has(s)) {
+          s.mesh.material.color.set(0xffffff);
+          s.mesh.material.opacity = 1.0;
+        } else {
+          // Instantly hide losers — the winner channel is all that remains
+          s.mesh.material.opacity = 0;
+        }
+      }
+
+      bloom.strength = 1.6;
+      pulseCloud(1);
+      strikePhase = "holding";
+      phaseT0     = performance.now();
+      setPhaseLabel("resolved");
+    }
+
+    triggerRef.current = startGrowth;
+
+    // ── Animation loop ─────────────────────────────────────────────────────────
+    let animId;
+    function tick(ts) {
+      animId = requestAnimationFrame(tick);
+      const dt = ts - lastTs;
+      lastTs   = ts;
+      controls.update();
+
+      if (strikePhase === "growing") {
+        accumTime += dt;
+        const interval = 1000 / stepsRef.current;
+        while (accumTime >= interval && strikePhase === "growing") {
+          accumTime -= interval;
+          doStep();
+        }
+
+      } else if (strikePhase === "holding") {
+        // Hold bright winner for 1.8 s, with bloom decaying back to steady
+        const t = Math.min(1, (ts - phaseT0) / 600);
+        bloom.strength = THREE.MathUtils.lerp(1.6, 0.7, t);
+        pulseCloud(1 - Math.min(1, (ts - phaseT0) / 400));
+        if (ts - phaseT0 > 1800) {
+          strikePhase = "fading";
+          phaseT0     = ts;
+          setPhaseLabel("fading");
+        }
+
+      } else if (strikePhase === "fading") {
+        // Winner path fades out over 700 ms
+        const t = Math.min(1, (ts - phaseT0) / 700);
+        for (const s of allSegs) {
+          if (s.mesh && s.mesh.material.opacity > 0) {
+            s.mesh.material.opacity = 1 - t;
+          }
+        }
+        bloom.strength = THREE.MathUtils.lerp(0.7, 0, t);
+        if (ts - phaseT0 > 700) {
+          strikePhase = "pausing";
+          phaseT0     = ts;
+          setPhaseLabel("idle");
+        }
+
+      } else if (strikePhase === "pausing") {
+        // Short pause before new strike
+        if (ts - phaseT0 > 600 + Math.random() * 800) {
+          startGrowth();
+        }
+      }
+
+      composer.render();
+    }
+
+    startGrowth();
+    tick(performance.now());
+
+    return () => {
+      cancelAnimationFrame(animId);
+      controls.dispose();
+      renderer.dispose();
+      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
+    };
   }, []);
 
-  const handlePause = () => {
-    const next = !paused;
-    setPaused(next);
-    pausedRef.current = next;
+  // ── UI ────────────────────────────────────────────────────────────────────
+  const row = { display: "flex", justifyContent: "space-between", marginBottom: 4 };
+  const lbl = { fontSize: 10, color: "rgba(255,255,255,0.55)", letterSpacing: "1px", textTransform: "uppercase" };
+  const val = { fontSize: 10, color: "rgba(255,255,255,0.85)" };
+  const sldr = { width: "100%", accentColor: "#7eb8ff", cursor: "pointer" };
+  const btn = {
+    background: "none", border: "1px solid rgba(255,255,255,0.4)",
+    color: "white", padding: "4px 10px", fontSize: 11,
+    letterSpacing: "1px", fontFamily: "var(--font)", cursor: "pointer",
   };
-
-  const handleNew = () => {
-    simRef.current   = createSim();
-    phaseRef.current = "growing";
-    t0Ref.current    = performance.now();
-    setUiPhase("growing");
-    setCells(1);
-    if (paused) {
-      setPaused(false);
-      pausedRef.current = false;
-    }
-  };
-
-  const phaseLabel = { growing: "Growing", flash: "Return Stroke", fade: "Fading", done: "Complete" }[uiPhase];
-
-  const overlayBtn = () => ({
-    background: "none",
-    border: "1px solid rgba(255,255,255,0.4)",
-    color: "white",
-    padding: "4px 10px",
-    fontSize: 11,
-    letterSpacing: "1px",
-    fontFamily: "var(--font)",
-    cursor: "pointer",
-  });
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <canvas
-        ref={canvasRef}
-        style={{ display: "block", width: "100%", height: "100%" }}
-      />
+      <div ref={mountRef} style={{ width: "100%", height: "100%" }} />
 
-      {/* Status — top left */}
       <div style={{
         position: "absolute", top: 8, left: 8,
         color: "white", fontSize: 12, opacity: 0.6, pointerEvents: "none",
       }}>
-        {cells.toLocaleString()} cells · {phaseLabel}
+        Lichtenberg Lightning · ORBIT [drag]
       </div>
 
-      {/* Controls — top right */}
       <div style={{
         position: "absolute", top: 8, right: 8,
-        display: "flex", alignItems: "center", gap: "10px",
-        backgroundColor: "rgba(0,0,0,0.55)",
-        padding: "8px 14px",
-        borderRadius: "4px",
+        display: "flex", flexDirection: "column", gap: 12,
+        backgroundColor: "rgba(0,0,0,0.65)",
+        padding: "12px 16px", borderRadius: 4,
         color: "white", fontSize: 12, letterSpacing: "1px",
-        fontFamily: "var(--font)",
-        whiteSpace: "nowrap",
+        fontFamily: "var(--font)", minWidth: 190,
       }}>
-        <button style={overlayBtn()} onClick={handlePause}>
-          {paused ? "Resume" : "Pause"}
-        </button>
-        <button style={overlayBtn()} onClick={handleNew}>
-          New Strike
-        </button>
+        {/* Status + new-strike */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ opacity: 0.6, fontSize: 11 }}>{phaseLabel}</span>
+          <button style={btn} onClick={() => triggerRef.current?.()}>New Strike</button>
+        </div>
+
+        {/* Speed */}
+        <div>
+          <div style={row}>
+            <span style={lbl}>Growth Speed</span>
+            <span style={val}>{stepsPerSec} steps/s</span>
+          </div>
+          <input type="range" min={1} max={20} step={1}
+            value={stepsPerSec} onChange={e => setStepsPerSec(+e.target.value)}
+            style={sldr}
+          />
+        </div>
+
+        {/* Branch frequency */}
+        <div>
+          <div style={row}>
+            <span style={lbl}>Branch Frequency</span>
+            <span style={val}>{Math.round(branchProb * 100)}%</span>
+          </div>
+          <input type="range" min={0.05} max={0.60} step={0.05}
+            value={branchProb} onChange={e => setBranchProb(+e.target.value)}
+            style={sldr}
+          />
+        </div>
       </div>
     </div>
   );
