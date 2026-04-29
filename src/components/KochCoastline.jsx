@@ -3,11 +3,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { useCameraControls } from "./useCameraControls";
 
-const MAX_ITER = 8;       // 256×256 grid at full detail (~131K triangles)
-const WORLD    = 36;      // terrain side length in world units
-const H_SCALE  = 5.0;     // max mountain height
+const MAX_ITER = 10;      // 1024×1024 grid at full detail (~2M triangles)
+const WORLD    = 72;      // terrain side length in world units
+const H_SCALE  = 7.0;     // max mountain height
 const SEA_NORM = -0.05;   // normalized height [-1,1] where water begins
-const AUTO_MS  = 1500;    // ms between auto-advance steps
 
 // ── Seeded LCG random ────────────────────────────────────────────────────────
 function makeRand(seed) {
@@ -162,9 +161,10 @@ function KochCoastline({ hue = 200, captureRef }) {
   const [iter,       setIter]       = useState(1);
   const [running,    setRunning]    = useState(true);
   const [terrainKey, setTerrainKey] = useState(0);
+  const [speed,      setSpeed]      = useState(1500); // ms between auto-advance steps
 
   const { modeRef, mode, pos: flyPos, tickFly } =
-    useCameraControls(new THREE.Vector3(0, 14, 24));
+    useCameraControls(new THREE.Vector3(0, 22, 40));
 
   // ── One-time Three.js setup ───────────────────────────────────────────────
   useEffect(() => {
@@ -172,12 +172,12 @@ function KochCoastline({ hue = 200, captureRef }) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x7ec8e3);
-    scene.fog = new THREE.Fog(0x7ec8e3, 45, 150);
+    scene.fog = new THREE.Fog(0x7ec8e3, 90, 300);
 
     const w = mountRef.current.clientWidth;
     const h = mountRef.current.clientHeight;
-    const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 250);
-    camera.position.set(0, 14, 24);
+    const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 500);
+    camera.position.set(0, 22, 40);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -245,9 +245,9 @@ function KochCoastline({ hue = 200, captureRef }) {
   // ── Auto-advance iterations ────────────────────────────────────────────────
   useEffect(() => {
     if (!running || iter >= MAX_ITER) return;
-    const t = setTimeout(() => setIter(i => i + 1), AUTO_MS);
+    const t = setTimeout(() => setIter(i => i + 1), speed);
     return () => clearTimeout(t);
-  }, [running, iter]);
+  }, [running, iter, speed]);
 
   // ── Tint lights with hue ───────────────────────────────────────────────────
   useEffect(() => {
@@ -279,6 +279,15 @@ function KochCoastline({ hue = 200, captureRef }) {
     opacity: disabled ? 0.35 : 1,
   });
 
+  const row  = { display: "flex", justifyContent: "space-between", marginBottom: 2 };
+  const lbl  = { fontSize: 10, color: "rgba(255,255,255,0.55)", letterSpacing: "1px", textTransform: "uppercase" };
+  const val  = { fontSize: 10, color: "rgba(255,255,255,0.85)" };
+  const sldr = { width: "100%", accentColor: "#7eb8ff", cursor: "pointer" };
+
+  const speedLabel = speed < 1000
+    ? `${speed} ms`
+    : `${(speed / 1000).toFixed(1)} s`;
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={mountRef} style={{ width: "100%", height: "100%" }} />
@@ -291,38 +300,51 @@ function KochCoastline({ hue = 200, captureRef }) {
         {mode === "fly" ? "FLY  [WASD / arrows / []]" : "ORBIT  [drag]"}  · F / O to switch
       </div>
 
-      {/* Generation controls — top-right so they're always on-screen */}
+      {/* Generation controls — top-right */}
       <div style={{
         position: "absolute", top: 8, right: 8,
-        display: "flex", alignItems: "center", gap: "10px",
-        backgroundColor: "rgba(0,0,0,0.55)",
-        padding: "8px 14px",
-        borderRadius: "4px",
+        display: "flex", flexDirection: "column", gap: 12,
+        backgroundColor: "rgba(0,0,0,0.65)",
+        padding: "12px 16px", borderRadius: 4,
         color: "white", fontSize: 12, letterSpacing: "1px",
-        fontFamily: "var(--font)",
-        whiteSpace: "nowrap",
+        fontFamily: "var(--font)", minWidth: 210,
       }}>
-        <span style={{ opacity: 0.65 }}>Detail {iter} / {MAX_ITER}</span>
+        {/* Detail label + buttons */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ opacity: 0.65, whiteSpace: "nowrap" }}>
+            Detail {iter} / {MAX_ITER}
+          </span>
+          <button
+            style={overlayBtn(iter >= MAX_ITER)}
+            disabled={iter >= MAX_ITER}
+            onClick={() => setRunning(r => !r)}
+          >
+            {running && iter < MAX_ITER ? "Pause" : "Resume"}
+          </button>
+          <button
+            style={overlayBtn(iter >= MAX_ITER)}
+            disabled={iter >= MAX_ITER}
+            onClick={() => { setRunning(false); setIter(i => Math.min(i + 1, MAX_ITER)); }}
+          >
+            + Detail
+          </button>
+          <button style={overlayBtn()} onClick={handleReset}>
+            New Terrain
+          </button>
+        </div>
 
-        <button
-          style={overlayBtn(iter >= MAX_ITER)}
-          disabled={iter >= MAX_ITER}
-          onClick={() => setRunning(r => !r)}
-        >
-          {running && iter < MAX_ITER ? "Pause" : "Resume"}
-        </button>
-
-        <button
-          style={overlayBtn(iter >= MAX_ITER)}
-          disabled={iter >= MAX_ITER}
-          onClick={() => { setRunning(false); setIter(i => Math.min(i + 1, MAX_ITER)); }}
-        >
-          + Detail
-        </button>
-
-        <button style={overlayBtn()} onClick={handleReset}>
-          New Terrain
-        </button>
+        {/* Speed slider */}
+        <div>
+          <div style={row}>
+            <span style={lbl}>Auto Speed</span>
+            <span style={val}>{speedLabel} / step</span>
+          </div>
+          <input
+            type="range" min={200} max={5000} step={100}
+            value={speed} onChange={e => setSpeed(+e.target.value)}
+            style={sldr}
+          />
+        </div>
       </div>
     </div>
   );
