@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-const MAX_ITER = 22;
+const MAX_ITER = 16;
 const SQRT3_2  = Math.sqrt(3) / 2;
 
 // Recursive Koch draw with two optimisations:
