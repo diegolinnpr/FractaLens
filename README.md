@@ -69,7 +69,6 @@ The right-side control panel has three sections — **Chaos Game**, **3D Fractal
 | Fractal | Description |
 |---|---|
 | Tetrahedron / Octahedron / Dodecahedron | Chaos game fractals on 3D polyhedra |
-| Cube | 8-vertex chaos game fractal |
 | Mandelbulb | Raymarched 3D Mandelbrot set (power 8) |
 | Koch Coastline | Diamond-square heightmap terrain |
 | Koch Visualization | Interactive 2D Koch curve |
