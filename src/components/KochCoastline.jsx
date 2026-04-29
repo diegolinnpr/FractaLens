@@ -341,7 +341,7 @@ function KochCoastline({ hue = 200, captureRef }) {
           </div>
           <input
             type="range" min={200} max={5000} step={100}
-            value={speed} onChange={e => setSpeed(+e.target.value)}
+            value={5200 - speed} onChange={e => setSpeed(5200 - +e.target.value)}
             style={sldr}
           />
         </div>

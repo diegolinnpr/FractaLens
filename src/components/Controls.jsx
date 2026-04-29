@@ -215,8 +215,8 @@ function Controls({
         <FractalBtn key={name} name={name} fractalType={fractalType} setFractalType={setFractalType} />
       ))}
 
-      {/* ── Landscape Fractals ── */}
-      <div style={sectionHeadStyle}>Landscape</div>
+      {/* ── Nature Fractals ── */}
+      <div style={sectionHeadStyle}>Nature</div>
       {LANDSCAPE_FRACTALS.map((name) => (
         <FractalBtn key={name} name={name} fractalType={fractalType} setFractalType={setFractalType} />
       ))}
@@ -248,44 +248,48 @@ function Controls({
         ))}
       </select>
 
-      {/* ── Camera ── */}
-      <div style={sectionHeadStyle}>Camera</div>
+      {/* ── Camera — hidden for nature fractals which have their own controls ── */}
+      {!isNature && (
+        <>
+          <div style={sectionHeadStyle}>Camera</div>
 
-      <SliderRow
-        label="FOV"
-        value={fov}
-        displayValue={`${Math.round(fov)}°`}
-        min={5}
-        max={135}
-        step={1}
-        onChange={onFovChange}
-      />
+          <SliderRow
+            label="FOV"
+            value={fov}
+            displayValue={`${Math.round(fov)}°`}
+            min={5}
+            max={135}
+            step={1}
+            onChange={onFovChange}
+          />
 
-      <SliderRow
-        label="DOLLY ZOOM"
-        value={dollyMult}
-        displayValue={dollyLabel}
-        min={DOLLY_MIN}
-        max={DOLLY_MAX}
-        step={0.01}
-        onChange={onDollyChange}
-        className="dolly"
-      />
+          <SliderRow
+            label="DOLLY ZOOM"
+            value={dollyMult}
+            displayValue={dollyLabel}
+            min={DOLLY_MIN}
+            max={DOLLY_MAX}
+            step={0.01}
+            onChange={onDollyChange}
+            className="dolly"
+          />
 
-      {/* tick marks for dolly neutral */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: "9px",
-        color: "var(--text-dim)",
-        letterSpacing: "0.5px",
-        marginTop: "-10px",
-        marginBottom: "8px",
-      }}>
-        <span>WIDE</span>
-        <span style={{ color: dollyMult > 0.95 && dollyMult < 1.05 ? "var(--text)" : "var(--text-dim)" }}>·</span>
-        <span>TELE</span>
-      </div>
+          {/* tick marks for dolly neutral */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: "9px",
+            color: "var(--text-dim)",
+            letterSpacing: "0.5px",
+            marginTop: "-10px",
+            marginBottom: "8px",
+          }}>
+            <span>WIDE</span>
+            <span style={{ color: dollyMult > 0.95 && dollyMult < 1.05 ? "var(--text)" : "var(--text-dim)" }}>·</span>
+            <span>TELE</span>
+          </div>
+        </>
+      )}
 
       {/* ── Export ── */}
       <>

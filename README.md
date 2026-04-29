@@ -1,6 +1,6 @@
-# EduFrac — Interactive Fractal Visualizer
+# FractaLens — Interactive Fractal Visualizer
 
-An educational web app for exploring fractals in real-time 3D. Built with React and Three.js, EduFrac lets you visualize chaos game fractals, the Mandelbulb, procedural landscapes, and lightning patterns — all rendered in the browser with interactive camera controls and high-resolution export.
+An educational web app for exploring fractals in real-time 3D. Built with React and Three.js, FractaLens lets you visualize chaos game fractals, the Mandelbulb, procedural landscapes, and lightning patterns — all rendered in the browser with interactive camera controls and high-resolution export.
 
 **Authors:** Diego Linn, Tobias Watters, Vivian Simmons
 
@@ -34,7 +34,7 @@ npm run preview
 
 ### Choosing a Fractal
 
-The right-side control panel has a **Fractals** section. Select from:
+The right-side control panel has three sections — **Chaos Game**, **3D Fractals**, and **Nature**. Select from:
 
 | Fractal | Description |
 |---|---|
@@ -49,7 +49,7 @@ The right-side control panel has a **Fractals** section. Select from:
 
 ### Color Schemes
 
-Pick from 10 color palettes in the **Colors** section. Colors are applied differently depending on the fractal type — for chaos game fractals, color is mapped to local point density.
+Pick from 10 color palettes in the **Color Scheme** section. Colors are applied differently depending on the fractal type — for chaos game fractals, color is mapped to local point density.
 
 ### Camera Controls
 
@@ -66,7 +66,7 @@ Pick from 10 color palettes in the **Colors** section. Colors are applied differ
 
 ### Exporting
 
-Click **Export PDF** or **Export Image** in the control panel. The fractal renders at 4× resolution (4096×4096 for chaos game, 2560×2560 for Mandelbulb) and downloads with a timestamped filename.
+Click **⬇ Download PDF** in the Export section of the control panel. Chaos game fractals render at 4096×4096 and the Mandelbulb at 2560×2560 before encoding. Nature fractals (Koch, Lichtenberg) capture the current screen view. All exports download as a timestamped PDF.
 
 ### Article Page
 
@@ -92,11 +92,11 @@ The resulting point cloud converges to a self-similar fractal structure. Points 
 
 The Mandelbulb is rendered entirely on the GPU using a custom GLSL fragment shader. For each screen pixel, a ray is cast into the scene and marched forward in small steps. At each step, the shader evaluates the Mandelbulb distance estimator — a 3D generalization of the Mandelbrot set using spherical coordinates raised to the 8th power. When the ray gets close enough to the surface, the point is shaded with normals derived from the gradient of the distance field.
 
-### Landscape Fractals
+### Nature Fractals
 
-**Koch Coastline** uses the diamond-square algorithm to generate a heightmap (8 iterations), then builds a Three.js mesh terrain with a water plane and procedural sky.
+**Koch Coastline** uses the diamond-square algorithm to generate a heightmap (up to 10 iterations), then builds a Three.js mesh terrain. Elevation zones are shaded with vertex colors — deep water, shallow water, sand, grass, rock, and snow. The background is a sky-blue fog gradient.
 
-**Koch Visualization** draws a 2D Koch snowflake curve, subdividing each line segment recursively to the selected iteration depth.
+**Koch Visualization** draws a 2D Koch snowflake curve, subdividing each line segment recursively to the selected iteration depth. Try Zooming in to see the complexity!
 
 **Lichtenberg Lightning** procedurally grows a branching lightning tree using stochastic path extension, with Three.js bloom post-processing for the glow effect.
 
@@ -109,28 +109,27 @@ High-res exports re-render the scene at 4× resolution into an offscreen canvas,
 ## Project Structure
 
 ```
-EduFrac/
+FractaLens/
 ├── src/
-│   ├── App.jsx                     # Router (/ and /article)
-│   ├── Home.jsx                    # Main page layout
-│   ├── Article.jsx                 # Educational article
-│   ├── Navbar.jsx                  # Navigation bar
-│   └── components/
-│       ├── FractalCanvas.jsx       # Routes to the active fractal component
-│       ├── Controls.jsx            # Right-side control panel
-│       ├── ThreeScene.jsx          # Chaos game fractal renderer
-│       ├── Mandelbulb.jsx          # Raymarched Mandelbulb
-│       ├── KochCoastline.jsx       # Terrain landscape
-│       ├── KochVisualization.jsx   # 2D Koch curve
-│       ├── LichtenbergLightning.jsx# Lightning fractal
-│       ├── useCameraControls.js    # Orbit / fly camera hook
-│       └── downloadPDF.js          # Zero-dependency PDF encoder
-├── generator/                      # Python chaos game data generator
-│   ├── generator.py                # Generates .npz point cloud files
-│   └── shapes.py                   # Polyhedron vertex definitions
-├── data/                           # Pre-generated point cloud datasets
-├── public/                         # Static assets
-└── index.html                      # HTML entry point
+│   ├── App.jsx                     # Router (/ and /article)
+│   ├── Article.jsx                 # Educational article
+│   ├── Navbar.jsx                  # Navigation bar
+│   └── components/
+│       ├── FractalCanvas.jsx       # Routes to the active fractal component
+│       ├── Controls.jsx            # Right-side control panel
+│       ├── ThreeScene.jsx          # Chaos game fractal renderer
+│       ├── Mandelbulb.jsx          # Raymarched Mandelbulb
+│       ├── KochCoastline.jsx       # Terrain landscape
+│       ├── KochVisualization.jsx   # 2D Koch curve
+│       ├── LichtenbergLightning.jsx# Lightning fractal
+│       ├── useCameraControls.js    # Orbit / fly camera hook
+│       └── downloadPDF.js          # Zero-dependency PDF encoder
+├── generator/                      # Python chaos game data generator
+│   ├── generator.py                # Generates .npz point cloud files
+│   └── shapes.py                   # Polyhedron vertex definitions
+├── data/                           # Pre-generated point cloud datasets
+├── public/                         # Static assets
+└── index.html                      # HTML entry point
 ```
 
 ### Tech Stack
@@ -173,6 +172,48 @@ You can change the shapes or point count in the `__main__` block at the bottom o
 Download the `.npz` files and place them in the `data/` folder.
 
 ---
+
+## Custom Fractals & Code Extension
+
+FractaLens is designed to be extensible. You can customize existing fractals or add entirely new ones, both in the frontend (React + Three.js) and in the Python data generator.
+
+### Adding a New Fractal (Frontend)
+
+To add a new fractal visualization:
+
+1. Create a new component in `src/components/` (e.g. `MyFractal.jsx`)
+2. Implement the rendering logic — use Three.js for geometry/point clouds or GLSL shaders for raymarched fractals. Reference `ThreeScene.jsx` or `Mandelbulb.jsx` as examples.
+3. Register the fractal: add it to the selector in `Controls.jsx` and route it in `FractalCanvas.jsx`
+4. Expose parameters (iterations, scale, color, etc.) as props for real-time updates
+
+### Creating Custom Chaos Game Fractals
+
+1. Open `generator/shapes.py` and define your shape's vertices:
+
+```python
+my_shape = np.array([
+    [x1, y1, z1],
+    [x2, y2, z2],
+    ...
+])
+```
+
+2. Register the shape in `generator.py`, then run:
+
+```bash
+cd generator
+python generator.py
+```
+
+3. Move the generated `.npz` file into `data/` and update the fractal selector in the frontend.
+
+### Modifying Fractal Behavior
+
+**Chaos Game** — change the interpolation ratio (e.g. `0.5 → 0.3`), restrict vertex selection, or add weighted probabilities
+
+**Shader-Based Fractals** — modify the Mandelbulb power, change distance estimators, or add orbit traps and custom coloring
+
+**Procedural Systems** — adjust recursion depth (Koch curve), tune noise parameters (terrain), or modify branching logic (lightning)
 
 ## Notes
 
