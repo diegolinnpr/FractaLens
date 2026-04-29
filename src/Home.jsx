@@ -1,6 +1,7 @@
 import Controls from "./components/Controls";
 import { useState, useRef } from "react";
 import FractalCanvas from "./components/FractalCanvas";
+import { downloadAsPDF } from "./components/downloadPDF";
 
 function Home() {
   const [fractalType, setFractalType] = useState("Octahedron");
@@ -13,11 +14,9 @@ function Home() {
     if (!captureRef.current) return;
     const result = captureRef.current();
     if (!result) return;
-    const { dataUrl } = result;
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `edufrac-${fractalType.toLowerCase()}.jpg`;
-    a.click();
+    const { dataUrl, width, height } = result;
+    const filename = `edufrac-${fractalType.toLowerCase()}-${Date.now()}.pdf`;
+    await downloadAsPDF(dataUrl, width, height, filename);
   }
 
   return (

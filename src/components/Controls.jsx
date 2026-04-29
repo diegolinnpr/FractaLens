@@ -169,7 +169,7 @@ function FractalBtn({ name, fractalType, setFractalType }) {
 function Controls({
   setFractalType, fractalType,
   colorScheme, setColorScheme,
-  onDownloadImage,
+  onDownloadPDF,
   fov, dollyMult,
   onFovChange, onDollyChange,
 }) {
@@ -180,7 +180,7 @@ function Controls({
   async function handleDownload() {
     if (rendering) return;
     setRendering(true);
-    try { await onDownloadImage(); } finally { setRendering(false); }
+    try { await onDownloadPDF(); } finally { setRendering(false); }
   }
 
   const dollyLabel = dollyMult < 0.95
@@ -189,7 +189,7 @@ function Controls({
     ? `${dollyMult.toFixed(1)}× farther · tele`
     : "neutral";
 
-  const supportsCapture = !LANDSCAPE_FRACTALS.includes(fractalType);
+  const isNature = LANDSCAPE_FRACTALS.includes(fractalType);
 
   return (
     <div style={{
@@ -288,25 +288,27 @@ function Controls({
       </div>
 
       {/* ── Export ── */}
-      {supportsCapture && (
-        <>
-          <div style={sectionHeadStyle}>Export</div>
-          <button
-            style={{ ...downloadBtnStyle, opacity: rendering ? 0.45 : 1, cursor: rendering ? "wait" : "pointer" }}
-            onClick={handleDownload}
-            disabled={rendering}
-            title={fractalType === "Mandelbulb" ? "Renders at 2560×2560" : "Renders at 4096×4096"}
-          >
-            {rendering ? "Rendering…" : "⬇ Download Hi-Res"}
-          </button>
-          {rendering && (
-            <div style={{ marginTop: "8px", fontSize: "10px", color: "var(--text-dim)",
-              textAlign: "center", lineHeight: 1.5 }}>
-              {fractalType === "Mandelbulb" ? "Raymarching hi-res frame…" : "Capturing point cloud…"}
-            </div>
-          )}
-        </>
-      )}
+      <>
+        <div style={sectionHeadStyle}>Export</div>
+        <button
+          style={{ ...downloadBtnStyle, opacity: rendering ? 0.45 : 1, cursor: rendering ? "wait" : "pointer" }}
+          onClick={handleDownload}
+          disabled={rendering}
+          title={
+            isNature ? "Captures current view" :
+            fractalType === "Mandelbulb" ? "Renders at 2560×2560" : "Renders at 4096×4096"
+          }
+        >
+          {rendering ? "Rendering…" : "⬇ Download PDF"}
+        </button>
+        {rendering && (
+          <div style={{ marginTop: "8px", fontSize: "10px", color: "var(--text-dim)",
+            textAlign: "center", lineHeight: 1.5 }}>
+            {isNature ? "Capturing frame…" :
+             fractalType === "Mandelbulb" ? "Raymarching hi-res frame…" : "Capturing point cloud…"}
+          </div>
+        )}
+      </>
     </div>
   );
 }

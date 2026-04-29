@@ -136,12 +136,28 @@ function buildGeo(heights, iter) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function KochCoastline({ hue = 200 }) {
-  const mountRef   = useRef(null);
-  const meshRef    = useRef(null);
-  const lightsRef  = useRef({});
-  const heightsRef = useRef(null);
-  const seedRef    = useRef(Math.floor(Math.random() * 0xFFFFFFFF));
+function KochCoastline({ hue = 200, captureRef }) {
+  const mountRef    = useRef(null);
+  const meshRef     = useRef(null);
+  const lightsRef   = useRef({});
+  const heightsRef  = useRef(null);
+  const seedRef     = useRef(Math.floor(Math.random() * 0xFFFFFFFF));
+  const rendererRef = useRef(null);
+  const sceneRef    = useRef(null);
+  const cameraRef   = useRef(null);
+
+  useEffect(() => {
+    if (!captureRef) return;
+    captureRef.current = () => {
+      const renderer = rendererRef.current;
+      const scene    = sceneRef.current;
+      const camera   = cameraRef.current;
+      if (!renderer || !scene || !camera) return null;
+      renderer.render(scene, camera);
+      const dataUrl = renderer.domElement.toDataURL("image/jpeg", 0.95);
+      return { dataUrl, width: renderer.domElement.width, height: renderer.domElement.height };
+    };
+  });
 
   const [iter,       setIter]       = useState(1);
   const [running,    setRunning]    = useState(true);
@@ -167,6 +183,9 @@ function KochCoastline({ hue = 200 }) {
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(w, h);
     mountRef.current.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
+    sceneRef.current    = scene;
+    cameraRef.current   = camera;
 
     const orb = new OrbitControls(camera, renderer.domElement);
     orb.target.set(0, 0, 0);

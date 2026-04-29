@@ -1,121 +1,181 @@
-# Fractals-Eduational-Website
-Interactive visualization and dataset generator for chaos-game fractals based on 3D polyhedra.
+# EduFrac — Interactive Fractal Visualizer
 
-This project generates large point datasets using the chaos game algorithm and provides interactive 2D projections with real-time geometric shear transformations.
+An educational web app for exploring fractals in real-time 3D. Built with React and Three.js, EduFrac lets you visualize chaos game fractals, the Mandelbulb, procedural landscapes, and lightning patterns — all rendered in the browser with interactive camera controls and high-resolution export.
 
-------------------------------------------------------------
+**Authors:** Diego Linn, Tobias Watters, Vivian Simmons
 
-PROJECT CONTENTS
+---
 
-- generator.py  → Generates chaos-game datasets and saves them as .npz files
-- shapes.py     → Defines supported polyhedra and vertex coordinates
-- plot.py       → Interactive visualization tool
-- point_data/   → Folder where datasets should be stored (not included in repo)
+## Getting Started
 
-Supported shapes:
-4  - Tetrahedron
-5  - Trigonal Bipyramidal
-6  - Octahedron
-8  - Cube
-12 - Icosahedron
-20 - Dodecahedron
+**Prerequisites:** Node.js 18+
 
-------------------------------------------------------------
+```bash
+# Install dependencies
+npm install
 
-REQUIREMENTS
+# Start the development server
+npm run dev
+```
 
-Python 3.x
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-Install dependencies:
+```bash
+# Build for production
+npm run build
 
+# Preview the production build locally
+npm run preview
+```
+
+---
+
+## How to Use
+
+### Choosing a Fractal
+
+The right-side control panel has a **Fractals** section. Select from:
+
+| Fractal | Description |
+|---|---|
+| Tetrahedron / Octahedron / Dodecahedron | Chaos game fractals on 3D polyhedra |
+| Trigonal Bipyramidal | 5-vertex chaos game fractal |
+| Icosahedron | 12-vertex chaos game fractal |
+| Cube | 8-vertex chaos game fractal |
+| Mandelbulb | Raymarched 3D Mandelbrot set (power 8) |
+| Koch Coastline | Diamond-square heightmap terrain |
+| Koch Visualization | Interactive 2D Koch curve |
+| Lichtenberg Lightning | Procedural lightning tree |
+
+### Color Schemes
+
+Pick from 10 color palettes in the **Colors** section. Colors are applied differently depending on the fractal type — for chaos game fractals, color is mapped to local point density.
+
+### Camera Controls
+
+**Orbit mode (default):**
+- Left-click drag — rotate
+- Scroll wheel — zoom
+
+**Fly mode** — press `F` to enter, `O` to exit:
+- Move mouse — look around (pointer locked)
+- `W / A / S / D` — move forward/left/back/right
+- `Space` — ascend
+- `Shift` — descend
+- `[` / `]` — decrease/increase speed
+
+### Exporting
+
+Click **Export PDF** or **Export Image** in the control panel. The fractal renders at 4× resolution (4096×4096 for chaos game, 2560×2560 for Mandelbulb) and downloads with a timestamped filename.
+
+### Article Page
+
+Navigate to **Article** in the navbar for an educational overview of fractals — what they are, how the chaos game algorithm works, and where fractals appear in the real world.
+
+---
+
+## How It Works
+
+### Chaos Game Fractals
+
+The chaos game algorithm generates fractals from polyhedra:
+
+1. Pick a random starting point inside the shape
+2. Randomly select one of the polyhedron's vertices
+3. Move halfway toward that vertex
+4. Plot the new point
+5. Repeat millions of times
+
+The resulting point cloud converges to a self-similar fractal structure. Points are colored by **local density**: 3D space is divided into a 43×43×43 grid, each cell is counted, and counts are mapped to the active color palette.
+
+### Mandelbulb
+
+The Mandelbulb is rendered entirely on the GPU using a custom GLSL fragment shader. For each screen pixel, a ray is cast into the scene and marched forward in small steps. At each step, the shader evaluates the Mandelbulb distance estimator — a 3D generalization of the Mandelbrot set using spherical coordinates raised to the 8th power. When the ray gets close enough to the surface, the point is shaded with normals derived from the gradient of the distance field.
+
+### Landscape Fractals
+
+**Koch Coastline** uses the diamond-square algorithm to generate a heightmap (8 iterations), then builds a Three.js mesh terrain with a water plane and procedural sky.
+
+**Koch Visualization** draws a 2D Koch snowflake curve, subdividing each line segment recursively to the selected iteration depth.
+
+**Lichtenberg Lightning** procedurally grows a branching lightning tree using stochastic path extension, with Three.js bloom post-processing for the glow effect.
+
+### Export Pipeline
+
+High-res exports re-render the scene at 4× resolution into an offscreen canvas, read the pixel buffer, encode it as JPEG, then wrap it in a manually constructed PDF (using the PDF DCTDecode filter spec) — no external PDF library required.
+
+---
+
+## Project Structure
+
+```
+EduFrac/
+├── src/
+│   ├── App.jsx                     # Router (/ and /article)
+│   ├── Home.jsx                    # Main page layout
+│   ├── Article.jsx                 # Educational article
+│   ├── Navbar.jsx                  # Navigation bar
+│   └── components/
+│       ├── FractalCanvas.jsx       # Routes to the active fractal component
+│       ├── Controls.jsx            # Right-side control panel
+│       ├── ThreeScene.jsx          # Chaos game fractal renderer
+│       ├── Mandelbulb.jsx          # Raymarched Mandelbulb
+│       ├── KochCoastline.jsx       # Terrain landscape
+│       ├── KochVisualization.jsx   # 2D Koch curve
+│       ├── LichtenbergLightning.jsx# Lightning fractal
+│       ├── useCameraControls.js    # Orbit / fly camera hook
+│       └── downloadPDF.js          # Zero-dependency PDF encoder
+├── generator/                      # Python chaos game data generator
+│   ├── generator.py                # Generates .npz point cloud files
+│   └── shapes.py                   # Polyhedron vertex definitions
+├── data/                           # Pre-generated point cloud datasets
+├── public/                         # Static assets
+└── index.html                      # HTML entry point
+```
+
+### Tech Stack
+
+- **React 19** — UI and component lifecycle
+- **Three.js** — WebGL rendering, geometry, and shaders
+- **React Router 6** — Client-side routing
+- **Vite** — Dev server and production builds
+- **Python + NumPy** — Offline chaos game data generation
+
+---
+
+## Data Generation (Optional)
+
+The chaos game point cloud data is pre-generated and bundled with the app. If you want to regenerate or create new datasets:
+
+**Prerequisites:** Python 3.x
+
+```bash
 pip install numpy matplotlib
+```
 
-------------------------------------------------------------
+Edit the output path in `generator/generator.py` to point to your local `data/` folder, then:
 
-FULL DATASET DOWNLOAD (840MB)
-
-The full dataset is hosted on Google Drive:
-
-https://drive.google.com/drive/u/0/folders/1VH2aAmp_eVxuJSx-3yOpoyrn_6sgtPT0
-
-To use the datasets:
-
-1. Download all .npz files from the Drive link.
-2. Create a folder named:
-
-   point_data
-
-3. Place all downloaded .npz files inside that folder.
-4. Update file paths inside generator.py and plot.py to match your local directory.
-
-Each dataset contains:
-- points   → Generated chaos-game points
-- corners  → Shape vertices
-- metadata → shape name, dimension, number of points
-
-------------------------------------------------------------
-
-GENERATING NEW DATASETS
-
-To generate new chaos-game datasets:
-
-Edit the bottom of generator.py:
-
-if __name__ == "__main__":
-    for n_corners in [4, 5, 6, 8, 12, 20]:
-        gen_unit_shape(n_corners, 5_000_000)
-
-Also update the filepaths within generator.py to match your directory point_data
-
-You may change:
-- The shapes list
-- The number of points
-
-Then run:
-
+```bash
+cd generator
 python generator.py
+```
 
-This will:
-- Generate chaos-game points
-- Save them as .npz
-- Verify the file was written correctly
+This generates `.npz` files containing:
+- `points` — Generated 3D coordinates
+- `corners` — Polyhedron vertices
+- `metadata` — Shape name, dimension, point count
 
-------------------------------------------------------------
+You can change the shapes or point count in the `__main__` block at the bottom of `generator.py`.
 
-INTERACTIVE VISUALIZATION
+**Full dataset (~840 MB):** The full pre-generated dataset is hosted on Google Drive:
+[https://drive.google.com/drive/u/0/folders/1VH2aAmp_eVxuJSx-3yOpoyrn_6sgtPT0](https://drive.google.com/drive/u/0/folders/1VH2aAmp_eVxuJSx-3yOpoyrn_6sgtPT0)
 
-To explore a dataset:
+Download the `.npz` files and place them in the `data/` folder.
 
-1. Ensure the corresponding .npz file is inside point_data
-2. Open plot.py
-3. Set:
+---
 
-   n_corners = 4
+## Notes
 
-4. Run:
-
-python plot.py
-
-An interactive 2D XY projection will open.
-
-Mouse movement dynamically shears the fourth vertex and updates the point cloud in real time. This feature currently only works for n=4.
-
-Adjustable parameters in plot.py:
-
-N_PLOT   → number of points displayed
-dot_size → scatter size
-opacity  → transparency
-
-------------------------------------------------------------
-
-NOTES
-
-- Large datasets (5M+ points) require significant memory.
-- Visualization displays a subset of points for performance.
-- File paths may need adjustment depending on your system.
-
-------------------------------------------------------------
-
-Authors:
-Diego Linn, Tobias Watters, Vivian Simmons
-
+- Large point datasets (5M+ points) require significant memory.
+- The Mandelbulb shader is GPU-intensive — performance depends on your hardware.
+- File paths in `generator.py` may need adjustment for your local setup.

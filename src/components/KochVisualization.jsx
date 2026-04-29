@@ -36,8 +36,18 @@ const ALL_ITERS = (() => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function KochVisualization({ hue = 200 }) {
+function KochVisualization({ hue = 200, captureRef }) {
   const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!captureRef) return;
+    captureRef.current = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return null;
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      return { dataUrl, width: canvas.width, height: canvas.height };
+    };
+  });
   const [iter, setIter]       = useState(0);
   const [running, setRunning] = useState(true);
 

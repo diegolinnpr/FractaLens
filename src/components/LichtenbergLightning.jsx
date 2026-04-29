@@ -119,9 +119,23 @@ function buildCloud(scene) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function LichtenbergLightning({ hue = 200 }) {
-  const mountRef = useRef(null);
-  const hueRef   = useRef(hue);
+function LichtenbergLightning({ hue = 200, captureRef }) {
+  const mountRef    = useRef(null);
+  const hueRef      = useRef(hue);
+  const composerRef = useRef(null);
+  const rendererRef = useRef(null);
+
+  useEffect(() => {
+    if (!captureRef) return;
+    captureRef.current = () => {
+      const composer = composerRef.current;
+      const renderer = rendererRef.current;
+      if (!composer || !renderer) return null;
+      composer.render();
+      const dataUrl = renderer.domElement.toDataURL("image/jpeg", 0.95);
+      return { dataUrl, width: renderer.domElement.width, height: renderer.domElement.height };
+    };
+  });
 
   // User-controlled — React state drives the UI; refs feed the animation loop
   const [stepsPerSec, setStepsPerSec] = useState(3);
@@ -146,6 +160,7 @@ function LichtenbergLightning({ hue = 200 }) {
     renderer.toneMapping = THREE.ReinhardToneMapping;
     renderer.toneMappingExposure = 1.2;
     mount.appendChild(renderer.domElement);
+    rendererRef.current = renderer;
 
     // ── Scene ─────────────────────────────────────────────────────────────────
     const scene = new THREE.Scene();
@@ -161,6 +176,7 @@ function LichtenbergLightning({ hue = 200 }) {
     composer.addPass(new RenderPass(scene, camera));
     const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.6, 0.20);
     composer.addPass(bloom);
+    composerRef.current = composer;
 
     // ── Controls ──────────────────────────────────────────────────────────────
     const controls = new OrbitControls(camera, renderer.domElement);

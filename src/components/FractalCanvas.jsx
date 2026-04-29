@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import ThreeScene from "./ThreeScene";
 import Mandelbulb from "./Mandelbulb";
 import KochCoastline from "./KochCoastline";
@@ -9,16 +8,7 @@ import LichtenbergLightning from "./LichtenbergLightning";
 // that use HSL-based lighting/coloring rather than the POINT_SCHEMES palette.
 const SCHEME_HUES = [220, 20, 270, 160, 25, 200, 90, 0, 40, 220];
 
-const NATURE_FRACTALS = ["KochCoastline", "KochVisualization", "LichtenbergLightning"];
-
 function FractalCanvas({ fractalType, colorScheme, captureRef, fov, dollyMult }) {
-  // Null out captureRef when switching to a fractal that doesn't support hi-res export.
-  useEffect(() => {
-    if (NATURE_FRACTALS.includes(fractalType) && captureRef) {
-      captureRef.current = null;
-    }
-  }, [fractalType]);
-
   const hue = SCHEME_HUES[colorScheme] ?? 220;
 
   return (
@@ -38,11 +28,11 @@ function FractalCanvas({ fractalType, colorScheme, captureRef, fov, dollyMult })
           dollyMult={dollyMult}
         />
       ) : fractalType === "KochCoastline" ? (
-        <KochCoastline hue={hue} />
+        <KochCoastline hue={hue} captureRef={captureRef} />
       ) : fractalType === "KochVisualization" ? (
-        <KochVisualization hue={hue} />
+        <KochVisualization hue={hue} captureRef={captureRef} />
       ) : fractalType === "LichtenbergLightning" ? (
-        <LichtenbergLightning hue={hue} />
+        <LichtenbergLightning hue={hue} captureRef={captureRef} />
       ) : (
         <>
           <div style={{
