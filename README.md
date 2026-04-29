@@ -32,7 +32,7 @@ public/data/octahedron.bin    (~57 MB)
 public/data/dodecahedron.bin  (~57 MB)
 ```
 
-Each file holds 5 million points as raw 32-bit floats. Generation takes about 30–60 seconds per shape depending on your machine.
+Each file holds 5 million points as raw 32-bit floats. The app renders the first 2.5 million for performance. Generation takes about 30–60 seconds per shape depending on your machine.
 
 > The other fractals (Mandelbulb, Koch Coastline, Koch Visualization, Lichtenberg Lightning) are generated at runtime and do not need any data files.
 

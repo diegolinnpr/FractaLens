@@ -67,15 +67,17 @@ function applyColorScheme(schemeIdx, density, geometry) {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const BASE_DIST = 5.0;
-const CAPTURE_W = 4096;
-const CAPTURE_H = 4096;
+const BASE_DIST        = 5.0;
+const CAPTURE_W        = 4096;
+const CAPTURE_H        = 4096;
+const MAX_VISIBLE_PTS  = 2_500_000;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
   const totalPointsRef   = useRef(0);
   const visiblePointsRef = useRef(0);
   const buildingRef      = useRef(false);
+
   const mountRef         = useRef(null);
   const sceneRef         = useRef(null);
   const rendererRef      = useRef(null);
@@ -204,14 +206,14 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
 
       // ── Gradually reveal points ───────────────────────────────────────────
       if (buildingRef.current && pointsRef.current) {
-        visiblePointsRef.current += 500;
+        visiblePointsRef.current += 2100;
         if (visiblePointsRef.current >= totalPointsRef.current) {
           visiblePointsRef.current = totalPointsRef.current;
           buildingRef.current      = false;
         }
         pointsRef.current.geometry.setDrawRange(0, visiblePointsRef.current);
         const progress = visiblePointsRef.current / totalPointsRef.current;
-        pointsRef.current.material.opacity = 2**(-progress);
+        pointsRef.current.material.opacity = 2 ** (-progress);
       }
 
       renderer.render(scene, camera);
@@ -267,7 +269,7 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
         const points = new THREE.Points(geometry, material);
         sceneRef.current.add(points);
         pointsRef.current        = points;
-        totalPointsRef.current   = positions.length / 3;
+        totalPointsRef.current   = Math.min(positions.length / 3, MAX_VISIBLE_PTS);
         visiblePointsRef.current = 0;
         buildingRef.current      = true;
       });
@@ -276,12 +278,14 @@ function ThreeScene({ type, colorScheme, captureRef, fov, dollyMult }) {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={mountRef} style={{ width: "100%", height: "100%" }} />
+
       <div style={{
         position: "absolute", top: 8, left: 8,
         color: "white", fontSize: 12, opacity: 0.6, pointerEvents: "none",
       }}>
         {mode === "fly" ? "FLY  [WASD / mouse / []]" : "ORBIT  [drag]"}  · F / O to switch
       </div>
+
     </div>
   );
 }
