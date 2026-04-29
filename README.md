@@ -8,6 +8,36 @@ An educational web app for exploring fractals in real-time 3D. Built with React 
 
 ## Getting Started
 
+### 1. Generate the point cloud data
+
+The Chaos Game fractals (Tetrahedron, Octahedron, Dodecahedron) require pre-generated binary data files. These are not included in the repository and must be generated before the app will display those fractals.
+
+**Prerequisites:** Python 3.x + NumPy
+
+```bash
+pip install numpy
+```
+
+Then run the generator from the repo root:
+
+```bash
+python generator/generator.py
+```
+
+This will generate three files directly into `public/data/`:
+
+```
+public/data/tetrahedron.bin   (~57 MB)
+public/data/octahedron.bin    (~57 MB)
+public/data/dodecahedron.bin  (~57 MB)
+```
+
+Each file holds 5 million points as raw 32-bit floats. Generation takes about 30–60 seconds per shape depending on your machine.
+
+> The other fractals (Mandelbulb, Koch Coastline, Koch Visualization, Lichtenberg Lightning) are generated at runtime and do not need any data files.
+
+### 2. Install and run
+
 **Prerequisites:** Node.js 18+
 
 ```bash
@@ -39,8 +69,6 @@ The right-side control panel has three sections — **Chaos Game**, **3D Fractal
 | Fractal | Description |
 |---|---|
 | Tetrahedron / Octahedron / Dodecahedron | Chaos game fractals on 3D polyhedra |
-| Trigonal Bipyramidal | 5-vertex chaos game fractal |
-| Icosahedron | 12-vertex chaos game fractal |
 | Cube | 8-vertex chaos game fractal |
 | Mandelbulb | Raymarched 3D Mandelbrot set (power 8) |
 | Koch Coastline | Diamond-square heightmap terrain |
@@ -146,30 +174,21 @@ FractaLens/
 
 The chaos game point cloud data is pre-generated and bundled with the app. If you want to regenerate or create new datasets:
 
-**Prerequisites:** Python 3.x
+**Prerequisites:** Python 3.x + NumPy
 
 ```bash
-pip install numpy matplotlib
+pip install numpy
 ```
 
-Edit the output path in `generator/generator.py` to point to your local `data/` folder, then:
+Then run the generator from the repo root or the `generator/` folder:
 
 ```bash
-cd generator
-python generator.py
+python generator/generator.py
 ```
 
-This generates `.npz` files containing:
-- `points` — Generated 3D coordinates
-- `corners` — Polyhedron vertices
-- `metadata` — Shape name, dimension, point count
+This writes raw binary `.bin` files directly into `public/data/` — no path configuration needed. Each file is a flat sequence of 32-bit floats (x, y, z repeated for every point), which the app loads directly as a `Float32Array`.
 
-You can change the shapes or point count in the `__main__` block at the bottom of `generator.py`.
-
-**Full dataset (~840 MB):** The full pre-generated dataset is hosted on Google Drive:
-[https://drive.google.com/drive/u/0/folders/1VH2aAmp_eVxuJSx-3yOpoyrn_6sgtPT0](https://drive.google.com/drive/u/0/folders/1VH2aAmp_eVxuJSx-3yOpoyrn_6sgtPT0)
-
-Download the `.npz` files and place them in the `data/` folder.
+To change the point count or add shapes, edit the `__main__` block at the bottom of `generator.py`. Available shapes are defined in `generator/shapes.py` — add an entry there and include the key in the loop to generate it.
 
 ---
 
